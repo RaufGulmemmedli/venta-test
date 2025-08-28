@@ -113,7 +113,7 @@ export default function homePagePage() {
       <FinSearch />
 
       <CuratorStatuses />
-      <Applicants />
+      {/* <Applicants /> */}
       <br />
       <br />
       <br />
