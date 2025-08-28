@@ -1,0 +1,121 @@
+{
+  "auth": {
+    "login": "Daxil ol",
+    "email": "E-poçt",
+    "password": "Şifrə",
+    "text": "İdarə panelimizə giriş",
+    "emailRequired": "E-poçt vacibdir",
+    "passwordRequired": "Şifrə vacibdir",
+    "invalidEmail": "Zəhmət olmasa düzgün e-poçt daxil edin",
+    "loginButton": "Daxil ol",
+    "loginSuccess": "Uğurla daxil oldunuz!"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "homePage": "Ana səhifə",
+    "cvPage": "CV",
+    "settings": "Ayarlar",
+    "section": "Bölmə",
+    "atribut": "Atribut",
+    "step": "Addım",
+    "cvs": "CV-lər",
+    "assignUser": "İstifadəçi təyin et",
+    "logout": "Çıxış",
+    "profile": "Profil",
+    "security": "Təhlükəsizlik",
+    "notifications": "Bildirişlər"
+  },
+  "dashboard": {
+    "title": "Xoş gəldin!",
+    "totalUsers": "İstifadəçilərin sayı",
+    "totalBlogs": "Bloqların sayı",
+    "revenue": "Gəlir",
+    "growth": "Artım"
+  },
+  "homePage": {
+    "title": "Ana səhifə",
+    "addCustomer": "Müştəri əlavə et",
+    "editCustomer": "Müştərini redaktə et",
+    "deleteCustomer": "Müştərini sil",
+    "name": "Ad",
+    "email": "E-poçt",
+    "status": "Status",
+    "actions": "Əməliyyatlar"
+  },
+  "cvPage": {
+    "title": "CV "
+  
+  },
+  "attribute": {
+    "title": "CV Atributları yarat",
+    "addAttribute": "Atribut əlavə et",
+    "editAttribute": "Atributu redaktə et",
+    "deleteAttribute": "Atributu sil",
+    "type": "Tip",
+  "inputHeader": "Atribut başlığı",
+  "selectTypePlaceholder": "Seçim edin",
+  "headerSelectPlaceholder": "Başlıq",
+  "attributeTypeLabel": "Atribut növü",
+  "inputTitleLabel": "İnput başlığı",
+  "inputTitlePlaceholder": "İnput başlığını daxil edin",
+  "addValue": "Dəyər əlavə et",
+  "showInTable": "Cədvəldə görsənsin",
+  "required": "Məcburi",
+  "showInPrint": "Printdə göstər",
+  "addable": "Əlavə edilə bilir",
+  "yes": "Bəli",
+  "no": "Xeyr"
+  },
+  
+  "blogs": {
+    "title": "Bloqlar",
+    "addBlog": "Bloq əlavə et",
+    "editBlog": "Bloqu redaktə et",
+    "deleteBlog": "Bloqu sil",
+    "readMore": "Daha ətraflı"
+  },
+  "common": {
+    "save": "Yadda saxla",
+    "cancel": "Ləğv et",
+    "delete": "Sil",
+    "edit": "Redaktə et",
+    "add": "Əlavə et",
+    "search": "Axtar",
+    "filter": "Filtr",
+    "previous": "Əvvəlki",
+    "next": "Növbəti",
+    "loading": "Yüklənir...",
+    "noData": "Məlumat yoxdur",
+  "actions": "Əməliyyatlar",
+  "selectPlaceholder": "Seçim edin",
+  "yes": "Hə",
+  "no": "Yox"
+  },
+  "selectDialog": {
+    "title": "Seçim dəyərlərini əlavə et",
+    "valueInputPlaceholder": "Dəyər daxil edin (birdən çox üçün vergül ilə)",
+    "noValues": "Heç bir dəyər yoxdur."
+  },
+  "step": {
+    "title": "CV Addımları",
+    "addStep": "Addım əlavə et",
+    "editStep": "Addımı redaktə et",
+    "deleteStep": "Addımı sil",
+    "newStep": "Yeni Step",
+    "stepNameLabel": "Step adı",
+  "stepNamePlaceholder": "Step adını daxil edin",
+  "typeLabel": "Tip"
+  },
+  "section": {
+    "title": "CV Bölmələri",
+    "addSection": "Bölmə əlavə et",
+    "editSection": "Bölməni redaktə et",
+    "deleteSection": "Bölməni sil",
+    "form": {
+      "titleLabel": "Başlıq",
+      "titlePlaceholder": "Başlıq daxil edin",
+      "typeLabel": "Tip",
+      "stepLabel": "Step"
+    }
+  }
+}

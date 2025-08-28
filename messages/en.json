@@ -1,0 +1,121 @@
+{
+  "auth": {
+    "login": "Login",
+    "email": "Email",
+    "password": "Password",
+    "text": "Access to our dashboard",
+    "emailRequired": "Email is required",
+    "passwordRequired": "Password is required",
+    "invalidEmail": "Please enter a valid email",
+    "loginButton": "Sign In",
+    "loginSuccess": "Login successful!"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "homePage": "homePage",
+    "cvPage": "CV",
+    "settings": "Settings",
+    "section": "Section",
+    "atribut": "Attribute",
+    "step": "Step",
+    "cvs": "CVs",
+    "assignUser": "Assign User",
+    "logout": "Logout",
+    "profile": "Profile",
+    "security": "Security",
+    "notifications": "Notifications"
+  },
+  "dashboard": {
+    "title": "Welcome",
+    
+    "totalUsers": "Total Users",
+    "totalBlogs": "Total Blogs",
+    "revenue": "Revenue",
+    "growth": "Growth"
+  },
+  "homePage": {
+    "title": "Home Page",
+    "addCustomer": "Add Customer",
+    "editCustomer": "Edit Customer",
+    "deleteCustomer": "Delete Customer",
+    "name": "Name",
+    "email": "Email",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "cvPage": {
+    "title": "CV "
+  
+  },
+  "attribute": {
+    "title": "CV Attributes Creation",
+    "addAttribute": "Add Attribute",
+    "editAttribute": "Edit Attribute",
+    "deleteAttribute": "Delete Attribute",
+    "type": "Type",
+  "inputHeader": "Attribute header",
+  "selectTypePlaceholder": "Select",
+  "headerSelectPlaceholder": "Title",
+  "attributeTypeLabel": "Attribute type",
+  "inputTitleLabel": "Input title",
+  "inputTitlePlaceholder": "Enter input title",
+  "addValue": "Add value",
+  "showInTable": "Show in table",
+  "required": "Required",
+  "showInPrint": "Show in print",
+  "addable": "Addable"
+  ,
+  "yes": "Yes",
+  "no": "No"
+  },
+  "selectDialog": {
+    "title": "Add selection values",
+    "valueInputPlaceholder": "Enter value (comma separated for many)",
+    "noValues": "No values yet."
+  },
+  "step": {
+    "title": "CV Steps",
+    "addStep": "Add Step",
+    "editStep": "Edit Step",
+    "deleteStep": "Delete Step",
+    "newStep": "New Step",
+    "stepNameLabel": "Step name",
+  "stepNamePlaceholder": "Enter step name",
+  "typeLabel": "Type"
+  },
+  "section": {
+    "title": "CV Sections",
+    "addSection": "Add Section",
+    "editSection": "Edit Section",
+    "deleteSection": "Delete Section",
+    "form": {
+      "titleLabel": "Title",
+      "titlePlaceholder": "Enter title",
+      "typeLabel": "Type",
+      "stepLabel": "Step"
+    }
+  },
+  
+  "blogs": {
+    "title": "Blogs",
+    "addBlog": "Add Blog",
+    "editBlog": "Edit Blog",
+    "deleteBlog": "Delete Blog",
+    "readMore": "Read More"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "filter": "Filter",
+    "previous": "Previous",
+    "next": "Next",
+    "loading": "Loading...",
+    "noData": "No data available",
+  "actions": "Actions",
+  "selectPlaceholder": "Select"
+  }
+}

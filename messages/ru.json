@@ -1,0 +1,120 @@
+{
+  "auth": {
+    "login": "Войти",
+    "email": "Электронная почта",
+    "text": "Доступ к нашей панели управления",
+    "password": "Пароль",
+    "emailRequired": "Электронная почта обязательна",
+    "passwordRequired": "Пароль обязателен",
+    "invalidEmail": "Пожалуйста, введите корректный email",
+    "loginButton": "Войти",
+    "loginSuccess": "Успешный вход!"
+  },
+  "nav": {
+    "dashboard": "Панель управления",
+    "homePage": "Клиенты",
+    "cvPage": "CV",
+    "settings": "Настройки",
+    "section": "раздел",
+    "atribut": "атрибут",
+    "step": "шаг",
+    "cvs": "Резюме",
+    "assignUser": "Назначить пользователя",
+    "logout": "Выйти",
+    "profile": "Профиль",
+    "security": "Безопасность",
+    "notifications": "Уведомления"
+  },
+  "dashboard": {
+    "title": "Добро пожаловать",
+    "totalUsers": "Всего пользователей",
+    "totalBlogs": "Всего блогов",
+    "revenue": "Доход",
+    "growth": "Рост"
+  },
+  "homePage": {
+    "title": "Главная страница",
+    "addCustomer": "Добавить клиента",
+    "editCustomer": "Редактировать клиента",
+    "deleteCustomer": "Удалить клиента",
+    "name": "Имя",
+    "email": "Электронная почта",
+    "status": "Статус",
+    "actions": "Действия"
+  },
+  "cvPage": {
+    "title": "CV "
+  },
+  "attribute": {
+    "title": "CV Атрибуты создания",
+    "addAttribute": "Добавить атрибут",
+    "editAttribute": "Редактировать атрибут",
+    "deleteAttribute": "Удалить атрибут",
+    "type": "Тип",
+  "inputHeader": "Заголовок атрибутов",
+  "selectTypePlaceholder": "Выберите",
+  "headerSelectPlaceholder": "Заголовок",
+  "attributeTypeLabel": "Тип атрибута",
+  "inputTitleLabel": "Название поля",
+  "inputTitlePlaceholder": "Введите название поля",
+  "addValue": "Добавить значение",
+  "showInTable": "Показать в таблице",
+  "required": "Обязательно",
+  "showInPrint": "Показать при печати",
+  "addable": "Можно добавить",
+  "yes": "Да",
+  "no": "Нет"
+  },
+  "selectDialog": {
+    "title": "Добавить значения",
+    "valueInputPlaceholder": "Введите значение (через запятую для нескольких)",
+    "noValues": "Нет значений."
+  },
+  "step": {
+    "title": "CV Шаги",
+    "addStep": "Добавить шаг",
+    "editStep": "Редактировать шаг",
+    "deleteStep": "Удалить шаг",
+    "newStep": "Новый шаг",
+    "stepNameLabel": "Название шага",
+  "stepNamePlaceholder": "Введите название шага",
+  "typeLabel": "Тип"
+  },
+  "section": {
+    "title": "CV Разделы",
+    "addSection": "Добавить раздел",
+    "editSection": "Редактировать раздел",
+    "deleteSection": "Удалить раздел",
+    "form": {
+      "titleLabel": "Заголовок",
+      "titlePlaceholder": "Введите заголовок",
+      "typeLabel": "Тип",
+      "stepLabel": "Шаг"
+    }
+  },
+  
+
+  "blogs": {
+    "title": "Блоги",
+    "addBlog": "Добавить блог",
+    "editBlog": "Редактировать блог",
+    "deleteBlog": "Удалить блог",
+    "readMore": "Читать далее"
+  },
+  "common": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "add": "Добавить",
+    "search": "Поиск",
+    "filter": "Фильтр",
+    "previous": "Предыдущий",
+    "next": "Следующий",
+    "loading": "Загрузка...",
+    "noData": "Нет данных",
+  "actions": "Действия",
+  "selectPlaceholder": "Выберите"
+  
+  }
+}
