@@ -24,10 +24,10 @@ export function AdminHeader() {
     <header className="border-b" >
       <div className="flex h-16 items-center px-4 gap-4">
         <div className="flex-1">
-          <div className="relative max-w-md">
+          {/* <div className="relative max-w-md">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input type="search" placeholder="Search..." className="pl-8" />
-          </div>
+          </div> */}
         </div>
 
         <div className="flex items-center gap-2">
@@ -43,7 +43,7 @@ export function AdminHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder-user.jpg" alt="Admin" />
+                  <AvatarImage src="/p laceholder-user.jpg" alt="Admin" />
                   <AvatarFallback>AD</AvatarFallback>
                 </Avatar>
               </Button>

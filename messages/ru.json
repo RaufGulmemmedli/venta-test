@@ -78,7 +78,14 @@
     "newStep": "Новый шаг",
     "stepNameLabel": "Название шага",
   "stepNamePlaceholder": "Введите название шага",
-  "typeLabel": "Тип"
+  "typeLabel": "Тип",
+  "deleteDescription": "Это действие необратимо. Вы уверены, что хотите удалить этот шаг?",
+  "deleteTitle": "Удалить шаг?",
+  "search_placeholder": "Поиск...",
+  "search": "Поиск",
+  "all": "Все",
+  "active": "Активный",
+  "passive": "Пассивный"
   },
   "section": {
     "title": "CV Разделы",
@@ -90,7 +97,20 @@
       "titlePlaceholder": "Введите заголовок",
       "typeLabel": "Тип",
       "stepLabel": "Шаг"
-    }
+    },
+    "newSection": "Новый раздел",
+    "sectionNamePlaceholder": "Введите название раздела",
+    "sectionNameLabel": "Название раздела",
+    "selectSectionsPlaceholder": "Выберите разделы",
+    "selectStepsPlaceholder": "Выберите шаги",
+    "deleteDescription": "Это действие необратимо. Вы уверены, что хотите удалить этот раздел?",
+    "deleteTitle": "Удалить раздел?",
+    "search_placeholder": "Поиск...",
+    "search": "Поиск",
+    "all": "Все",
+    "active": "Активный",
+    "passive": "Пассивный",
+    "typeLabel": "Тип"
   },
   
 
@@ -116,5 +136,28 @@
   "actions": "Действия",
   "selectPlaceholder": "Выберите"
   
+  },
+  "AlertDialog": {
+    "title": "Удалить?",
+    "description": "Это действие необратимо. Вы уверены, что хотите удалить?",
+    "confirm": "Да",
+    "cancel": "Нет"
+  },
+  "StepReorder": {
+    "title": "Перенос шагов",
+    "description": "Перетащите, чтобы изменить порядок шагов.",
+    "confirm": "Сохранить",
+    "cancel": "Отмена",
+    "contextLabel": "Контекст",
+    "context": "Шаг"
+  },
+  "SectionReorder": {
+    "title": "Перенос разделов",
+    "description": "Перетащите, чтобы изменить порядок разделов.",
+    "confirm": "Сохранить",
+    "cancel": "Отмена",
+    "contextLabel": "Контекст",
+    "context": "Раздел",
+    "empty": "Нет доступных разделов"
   }
 }

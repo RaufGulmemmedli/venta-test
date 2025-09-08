@@ -31,7 +31,7 @@ export default function CvAnalysis() {
                         options={[
                             { value: "active", label: "Aktiv" },
                             { value: "inactive", label: "Passiv" },
-                            { value: "both", label: "Hər ikisi" },
+                          
                         ]}
                         placeholder="Status seçin"
                     />

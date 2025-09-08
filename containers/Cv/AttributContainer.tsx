@@ -55,7 +55,7 @@ export default function AttributeContainer() {
                 <Table className="text-sm">
                     <TableHeader>
                         <TableRow className="bg-gray-50 hover:bg-gray-50">
-                            <TableHead className="px-3 py-2">ID</TableHead>
+                            <TableHead className="px-3 py-2" >ID</TableHead>
                             <TableHead className="px-3 py-2">Ad</TableHead>
                             <TableHead className="px-3 py-2">Kateqoriya</TableHead>
                             <TableHead className="px-3 py-2">Üst atribut</TableHead>
@@ -64,15 +64,17 @@ export default function AttributeContainer() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {current.map(row => (
-                            <TableRow key={row.id} className="hover:bg-gray-50">
+                        {current.map((row, index) => (
+                            <TableRow key={`${row.id}-${index}`} className="hover:bg-gray-50">
                                 <TableCell className="px-3 py-2">{row.id}</TableCell>
                                 <TableCell className="px-3 py-2 font-medium">{row.name}</TableCell>
                                 <TableCell className="px-3 py-2">{row.category}</TableCell>
                                 <TableCell className="px-3 py-2">{row.parent}</TableCell>
                                 <TableCell className="px-3 py-2">{row.editable ? "Bəli" : "Xeyr"}</TableCell>
-                                <TableCell className="px-3 py-2 text-right flex gap-2"> <Edit className="w-4 h-4 inline-block" /> <Trash className="w-4 h-4 inline-block" /></TableCell>
-
+                                <TableCell className="px-3 py-2 text-right flex gap-2">
+                                    <Edit className="w-4 h-4 inline-block" />
+                                    <Trash className="w-4 h-4 inline-block" />
+                                </TableCell>
                             </TableRow>
                         ))}
                         {!current.length && (

@@ -102,9 +102,17 @@
     "editStep": "Addımı redaktə et",
     "deleteStep": "Addımı sil",
     "newStep": "Yeni Step",
-    "stepNameLabel": "Step adı",
+    "stepNameLabel": "Addım adı",
   "stepNamePlaceholder": "Step adını daxil edin",
-  "typeLabel": "Tip"
+  "typeLabel": "Tip",
+  "deleteDescription": "Bu əməliyyat geri qaytarıla bilməz. Bu məhsulu silmək istədiyinizə əminsinizmi?",
+  "deleteTitle": "Silinsin?",
+  "search_placeholder": "Axtar...",
+  "search": "Axtar",
+  "all": "Hamısı",
+  "active": "Aktiv",
+  "passive": "Passiv"
+
   },
   "section": {
     "title": "CV Bölmələri",
@@ -116,6 +124,45 @@
       "titlePlaceholder": "Başlıq daxil edin",
       "typeLabel": "Tip",
       "stepLabel": "Step"
-    }
+    },
+    "newSection": "Yeni Bölmə",
+    "sectionNamePlaceholder": "Bölmə adını daxil edin",
+    "sectionNameLabel": "Bölmə adı",
+    "selectSectionsPlaceholder": "Bölmələri seçin",
+    "selectStepsPlaceholder": "Addımları seçin",
+    "deleteDescription": "Bu əməliyyat geri qaytarıla bilməz. Bu məhsulu silmək istədiyinizə əminsinizmi?",
+    "deleteTitle": "Silinsin?",
+    "search_placeholder": "Axtar...",
+    "search": "Axtar",
+    "all": "Hamısı",
+    "active": "Aktiv",
+    "passive": "Passiv",
+    "typeLabel": "Tip"
+    
+
+  },
+  "AlertDialog": {
+    "title": "Silinsin?",
+    "description": "Bu əməliyyat geri qaytarıla bilməz. Silmək istədiyinizə əminsinizmi?",
+    "confirm": "Bəli",
+    "cancel": "Ləğv et"
+  },
+  "StepReorder": {
+    "title": "Addımları Yenidən Sırala",
+    "description": "Addımları yeni sıraya salmaq üçün sürükləyin.",
+    "confirm": "Yadda saxla",
+    "cancel": "Ləğv et",
+    "contextLabel": "Kontekst",
+    "context": "Addım"
+  },
+  "SectionReorder": {
+    "title": "Bölmələri Yenidən Sırala",
+    "description": "Bölmələri yeni sıraya salmaq üçün sürükləyin.",
+    "confirm": "Yadda saxla",
+    "cancel": "Ləğv et",
+    "contextLabel": "Kontekst",
+    "context": "Bölmə",
+    "empty": "Mövcud bölmə yoxdur"
   }
+
 }

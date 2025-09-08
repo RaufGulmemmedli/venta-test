@@ -2,44 +2,45 @@
 
 import React, { useState, useEffect } from "react"
 
-interface DropdownProps {
-  options: { value: string; label: string }[]
-  placeholder?: string
-  onChange?: (value: string) => void
-  value?: string
+interface Option {
+  value: string
+  label: string
 }
 
-export default function Dropdown({ options, placeholder = "Seçim edin", onChange, value = "" }: DropdownProps) {
-  const [selected, setSelected] = useState<string>(value)
+interface DropdownProps {
+  value: string
+  options: Option[]
+  onChange: (value: string) => void
+  placeholder?: string
+  className?: string        // əlavə etdik
+  triggerClassName?: string // (istəsən ayrıca trigger üslubu)
+  disabled?: boolean
+}
 
-  const handleChange = (selectedValue: string) => {
-    setSelected(selectedValue)
-    if (onChange) {
-      onChange(selectedValue)
-    }
-  }
-
-  // Update local state when external value changes
-  useEffect(() => {
-    setSelected(value)
-  }, [value])
-
+const Dropdown: React.FC<DropdownProps> = ({
+  value,
+  options,
+  onChange,
+  placeholder = "Seçin",
+  className = "",
+  triggerClassName = "",
+  disabled
+}) => {
   return (
-    <div className="relative">
+    <div className={className}>
       <select
-        value={selected}
-        onChange={(e) => handleChange(e.target.value)}
-        className="border rounded-md px-3 py-2 w-full"
+        disabled={disabled}
+        className={`w-full border rounded px-3 h-10 text-sm bg-white dark:bg-background focus:outline-none focus:ring-2 focus:ring-primary ${triggerClassName}`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
       >
-        <option value="" disabled>
-          {placeholder}
-        </option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
+        {!value && <option value="">{placeholder}</option>}
+        {options.map(o => (
+          <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
     </div>
   )
 }
+
+export default Dropdown
