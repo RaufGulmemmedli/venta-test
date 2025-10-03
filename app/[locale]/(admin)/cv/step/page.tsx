@@ -1,5 +1,5 @@
 "use client"
-import StepContainer from "@/containers/Cv/StepContainer"
+import StepContainer from "@/containers/settings/StepContainer"
 
 export default function StepPage() {
   return <StepContainer />

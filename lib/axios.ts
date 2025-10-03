@@ -1,7 +1,8 @@
+
 import axios from "axios"
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL || "http://10.40.10.42:7016/api/v1";
+  process.env.NEXT_PUBLIC_BASE_URL ||  "http://localhost/api";
   console.log( process.env.NEXT_PUBLIC_BASE_URL,"process.env.NEXT_PUBLIC_API_BASE_URL")
 
   console.log(process.env.NODE_ENV,"process.env.NODE_ENV") 
@@ -13,7 +14,6 @@ export const axiosInstance = axios.create({
   },
 })
 
-// Request interceptor for adding auth token
 axiosInstance.interceptors.request.use(
   async (config) => {
     const token = localStorage.getItem('token')
@@ -25,12 +25,12 @@ axiosInstance.interceptors.request.use(
 
     return config
   },
-  (error) => { 
+  (error) => {
     return Promise.reject(error)
   },
 )
- 
-// Response interceptor for handling errors
+
+
 axiosInstance.interceptors.response.use(
   (response) => {
     return response

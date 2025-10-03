@@ -1,14 +1,15 @@
 "use client"
-import React, { useState, useEffect } from "react"
+import React, { useMemo, useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import CreateStepModal from "@/containers/Cv/pages/CreateStepModal"
+import CreateStepModal from "@/containers/settings/pages/CreateStepModal"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChevronLeft, ChevronRight, Edit, Replace, Search, Trash } from "lucide-react"
 import { useSteps, useDeleteStep, useEditStepStatus } from "@/lib/hooks/useStep"
 import AlertDialogComponent from "@/components/AlertDiolog/AlertDiolog"
-import StepsReorderDialog from "@/containers/Cv/pages/StepsReorderDialog"
+import StepsReorderDialog from "@/containers/settings/pages/StepsReorderDialog"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import Dropdown from "@/components/ui/Dropdown"
@@ -24,6 +25,13 @@ export default function StepContainer() {
 	const [searchInput, setSearchInput] = useState("")
 	const [search, setSearch] = useState("")
 	const [statusFilter, setStatusFilter] = useState<'all' | 'true' | 'false'>('all')
+	const [statusFilterStep, setStatusFilterStep] = useState<'all' | 'cv' | 'vakansia'>('all')
+	const searchParams = useSearchParams()
+
+	useEffect(() => {
+		const shouldOpen = searchParams?.get("open") === "1"
+		if (shouldOpen) setOpen(true)
+	}, [])
 
 	React.useEffect(() => {
 		const h = setTimeout(() => setSearch(searchInput.trim()), 500)
@@ -34,17 +42,32 @@ export default function StepContainer() {
 		pageNumber,
 		pageSize,
 		value: search || undefined,
-		isActive: statusFilter === 'all' ? undefined : statusFilter === 'true'
+		isActive: statusFilter === 'all' ? undefined : statusFilter === 'true',
+		type: statusFilterStep === 'all' ? undefined : (statusFilterStep === 'cv' ? "1" : "2"),
 	}
 
-	const { data: steps = [], isLoading, isError } = useSteps(queryParams)
+	const { data: stepsData, isLoading, isError } = useSteps(queryParams)
 
-	const { data: nextPageSteps = [] } = useSteps(
-		{ ...queryParams, pageNumber: pageNumber + 1 },
-		{ enabled: steps.length === pageSize }
-	)
+    const steps = React.useMemo(() => {
+        const raw = (stepsData as any)?.responseValue?.items
+        if (!Array.isArray(raw)) return []
+        return raw.map((s: any) => {
+            const translations = Array.isArray(s.translations) ? s.translations : []
+            const primary = translations[0] || { title: "", description: "", lang: "" }
+            return {
+                id: s.id,
+                type: s.type,
+                moduleName: s.type === 1 ? 'CV' : s.type === 2 ? 'Vakansia' : 'Unknown',
+                isActive: s.isActive,
+                order: s.sortOrder,
+                translations,
+                title: primary.title,
+            }
+        })
+    }, [stepsData])
 
-	const canGoNext = steps.length === pageSize && nextPageSteps.length > 0
+    // hasNextPage-dən istifadə edərək növbəti səhifəyə keçidi idarə edək
+    const canGoNext = Boolean((stepsData as any)?.responseValue?.hasNextPage)
 
 	useEffect(() => {
 		if (!isLoading && !isError && steps.length === 0 && pageNumber > 1) {
@@ -95,6 +118,18 @@ export default function StepContainer() {
 						className="w-full"
 						options={[
 							{ value: 'all', label: t("all") || "Hamısı" },
+							{ value: 'cv', label: t("cv") || "Cv" },
+							{ value: 'vakansia', label: t("vacancy") || "Vakansia" },
+						]}
+						value={statusFilterStep}
+						onChange={(val: string) => { setStatusFilterStep(val as any); setPageNumber(1) }}
+					/>
+				</div>
+				<div className="flex gap-2 w-56">
+					<Dropdown
+						className="w-full"
+						options={[
+							{ value: 'all', label: t("all") || "Hamısı" },
 							{ value: 'true', label: t("active") || "Aktiv" },
 							{ value: 'false', label: t("passive") || "Passiv" },
 						]}
@@ -108,15 +143,15 @@ export default function StepContainer() {
 					<TableHeader>
 						<TableRow className="bg-gray-50 hover:bg-gray-50">
 							<TableHead className="px-3 py-2 text-lg">ID</TableHead>
-							<TableHead className="px-3 py-2 text-lg">Ad</TableHead>
-							<TableHead className="px-3 py-2 text-lg">Kontekst</TableHead>
-							<TableHead className="px-3 py-2 text-lg">Sıra</TableHead>
-							<TableHead className="px-3 py-2 text-lg">Sections</TableHead>
-							<TableHead className="px-3 py-2 text-lg">Status</TableHead>
-							<TableHead className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur z-10">Əməliyyatlar</TableHead>
+							<TableHead className="px-3 py-2 text-lg">{t("tableTitle")}</TableHead>
+							<TableHead className="px-3 py-2 text-lg">{t("module")}</TableHead>
+							<TableHead className="px-3 py-2 text-lg">{t("statusColumn")}</TableHead>
+							<TableHead className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur z-10">
+							  {t("actions")}
+							</TableHead>
 						</TableRow>
 					</TableHeader>
-					<TableBody>
+					<TableBody> 
 						{isLoading && (
 							<TableRow>
 								<TableCell colSpan={7} className="px-3 py-6 text-center">Yüklənir...</TableCell>
@@ -134,14 +169,11 @@ export default function StepContainer() {
 						)}
 						{!isLoading && !isError && steps.map((s: any) => (
 							<TableRow key={s.id}>
-								<TableCell className="px-3 py-4 text-base">{s.id}</TableCell>
-								<TableCell className="px-3 py-4 text-base font-medium">{s.name}</TableCell>
-								<TableCell className="px-3 py-4 text-base">
-									{s.context === 1 ? 'Cv' : s.context === 2 ? 'Vakansiya' : '-'}
-								</TableCell>
-								<TableCell className="px-3 py-4 text-base">{s.order}</TableCell>
-								<TableCell className="px-3 py-4 text-base">{s.sections?.length ?? 0}</TableCell>
-								<TableCell className="px-3 py-4">
+								<TableCell className="px-3 py-3 text-base">{s.id}</TableCell>
+								<TableCell className="px-3 py-3 text-base font-medium">{s.title || "-"}</TableCell>
+								<TableCell className="px-3 py-3 text-base">{s.moduleName ?? "-"}</TableCell>
+								
+								<TableCell className="px-3 py-3">
 									<Switch
 										checked={!!s.isActive}
 										disabled={editStatus.isPending}

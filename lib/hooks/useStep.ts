@@ -1,7 +1,15 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { stepService, type Step, type StepsParams, type CreateStepRequest, type UpdateStepRequest } from "@/lib/services/stepService"
+import {
+    stepService,
+    type StepsParams,
+    type createStepRequest,
+    type UpdateStepI18nRequest,
+    type StepsFilterResponse,
+    type StepI18n,
+    type StepQueueItem as ServiceStepQueueItem, // ADD: reuse service type
+} from "@/lib/services/stepService"
 import { toast } from "@/hooks/use-toast"
 
 export const stepKeys = {
@@ -13,26 +21,27 @@ export const stepKeys = {
 }
 
 export function useSteps(params?: StepsParams, options?: any) {
-    return useQuery<Step[], Error>({
+    return useQuery<StepsFilterResponse, Error>({
         queryKey: stepKeys.list(params ?? {}),
         queryFn: () => stepService.getSteps(params ?? {}),
         ...options,
     })
 }
-export function useAllSteps(context?: number) {
-    return useQuery<Step[], Error>({
-        queryKey: [...stepKeys.all, 'all', context],
-        queryFn: () => stepService.getAllSteps(context),
-        enabled: context != null,
+
+export function useAllSteps(type?: 'cv' | 'vakansiya') {
+    return useQuery({
+        queryKey: [...stepKeys.lists(), 'all', type],
+        queryFn: () => stepService.getAllSteps(type),
     })
 }
-export type CreateStepVars = Omit<CreateStepRequest, 'isActive'> & { isActive?: boolean }
-export interface EditStepVars { id: number; data: CreateStepVars }
+
+export type createStepVars = Omit<createStepRequest, 'isActive'> & { isActive?: boolean }
+export interface editStepVars { id: number; data: createStepVars }
 
 export function useCreateStep() {
     const queryClient = useQueryClient()
-    return useMutation<Step | any, unknown, CreateStepVars>({
-        mutationFn: (vars) => stepService.createStep({ ...vars, isActive: true }),
+    return useMutation<any, unknown, createStepVars>({
+        mutationFn: (vars) => stepService.createStep({ ...vars, isActive: vars.isActive ?? true } as createStepRequest),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: stepKeys.all })
             toast({ title: 'Success', description: 'Step yaradıldı.' })
@@ -47,11 +56,15 @@ export function useCreateStep() {
     })
 }
 
+export function usecreateStep() {
+    return useCreateStep()
+}
+
 export function useEditStep() {
     const queryClient = useQueryClient()
-    return useMutation<Step | any, unknown, EditStepVars>({
+    return useMutation<any, unknown, { id: number; data: createStepVars }>({
         mutationFn: (vars) => {
-            const body: UpdateStepRequest = { id: vars.id, ...vars.data, isActive: vars.data.isActive ?? true }
+            const body: UpdateStepI18nRequest = { id: vars.id, ...vars.data, isActive: vars.data.isActive ?? true }
             return stepService.editStep(body)
         },
         onSuccess: () => {
@@ -66,6 +79,10 @@ export function useEditStep() {
             })
         },
     })
+}
+
+export function useeditStep() {
+    return useEditStep()
 }
 
 export function useDeleteStep() {
@@ -85,27 +102,26 @@ export function useDeleteStep() {
         },
     })
 }
-export interface StepsQueueVars { steps: { id: number; name: string; context: number }[] }
+
+// Accept both old/new shapes and map to service shape
+type StepQueueInput = { stepId: number; type: number } | { stepId: number; moduleId: number }
+
 export function useEditStepsQueue() {
     const queryClient = useQueryClient()
-    return useMutation<any, unknown, StepsQueueVars>({
-        mutationFn: (vars) => {
-            const payload: CreateStepRequest[] = vars.steps.map(s => ({ name: s.name, context: s.context, isActive: true }))
-            return stepService.editStepsQueue(payload)
+    return useMutation<void, unknown, StepQueueInput[]>({
+        mutationFn: (payload) => {
+            const normalized: ServiceStepQueueItem[] = payload.map((p: any) => ({
+                stepId: p.stepId,
+                type: p.type ?? p.moduleId, // map moduleId -> type if needed
+            }))
+            return stepService.editStepsQueue(normalized)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: stepKeys.all })
-            toast({ title: 'Success', description: 'Sıra yeniləndi.' })
-        },
-        onError: (error: any) => {
-            toast({
-                title: 'Error',
-                description: error?.response?.data?.message || 'Sıra yenilənmədi.',
-                variant: 'destructive',
-            })
         },
     })
 }
+
 export interface StepStatusVars { id: number; isActive: boolean }
 export function useEditStepStatus() {
     const queryClient = useQueryClient()

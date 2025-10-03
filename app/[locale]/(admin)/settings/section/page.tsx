@@ -1,5 +1,5 @@
 "use client"
-import SectionContainer from "@/containers/Cv/SectionContainer"
+import SectionContainer from "@/containers/settings/SectionContainer"
 
 export default function SectionPage() {
   return <SectionContainer />

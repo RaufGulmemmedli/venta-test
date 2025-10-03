@@ -14,10 +14,20 @@
     "dashboard": "Dashboard",
     "homePage": "homePage",
     "cvPage": "CV",
+    "vacancyPage": "Vacancy",
+    "trainingPage": "Training",
     "settings": "Settings",
     "section": "Section",
     "atribut": "Attribute",
     "step": "Step",
+    "activity": "Activity",
+    "company": "Company",
+    "department": "Department",
+    "trainingFloors": "Training Floors",
+    "trainingRooms": "Rooms",
+    "trainingCategory": "Category",
+    "trainingRoomParameters": "Room Parameters",
+    
     "cvs": "CVs",
     "assignUser": "Assign User",
     "logout": "Logout",
@@ -63,10 +73,36 @@
   "showInTable": "Show in table",
   "required": "Required",
   "showInPrint": "Show in print",
-  "addable": "Addable"
-  ,
+  "addable": "Addable",
   "yes": "Yes",
-  "no": "No"
+  "no": "No",
+  "search_placeholder": "Search...",
+  "all": "All",
+  "loading": "Loading...",
+  "noData": "No data available",
+  "deleteDescription": "This action cannot be undone. Are you sure you want to delete this?",
+  "deleteTitle": "Delete Attribute?",
+  "sectionLabel": "Section",
+  "sectionPlaceholder": "Select section",
+  "important": "Important",
+  "selectSection": "Select section",
+  "cv": "CV",
+  "vacancy": "Vacancy",
+  "active": "Active",
+  "passive": "Passive",
+  "next": "Next",
+  "previous": "Previous",
+  "table": {
+    "id": "ID",
+    "name": "Name",
+    "sectionName": "Section name",
+    "valuable": "Valuable",
+    "visible": "Visible",
+    "important": "Important",
+    "type": "Type",
+    "status": "Status",
+    "actions": "Actions"
+  }
   },
   "selectDialog": {
     "title": "Add selection values",
@@ -74,7 +110,9 @@
     "noValues": "No values yet."
   },
   "step": {
-    "title": "CV Steps",
+    "cv": "CV",
+    "vacancy": "Vacancy",
+    "title": " Steps",
     "addStep": "Add Step",
     "editStep": "Edit Step",
     "deleteStep": "Delete Step",
@@ -88,10 +126,16 @@
   "search": "Search",
   "all": "All",
   "active": "Active",
-  "passive": "Passive"
+  "passive": "Passive",
+  "tableTitle": "Title",
+  "module": "Module",
+  "statusColumn": "Status",
+  "actions": "Actions"
   },
   "section": {
-    "title": "CV Sections",
+     "cv": "CV",
+    "vacancy": "Vacancy",
+    "title": "Sections",
     "addSection": "Add Section",
     "editSection": "Edit Section",
     "deleteSection": "Delete Section",
@@ -113,10 +157,15 @@
     "all": "All",
     "active": "Active",
     "passive": "Passive",
-    "typeLabel": "Type"
-
-
-
+    "typeLabel": "Type",
+    "type": "Type",
+    "table": {
+      "id": "ID",
+      "name": "Name",
+      "stepName": "Step name",
+      "status": "Status",
+      "actions": "Actions"
+    }
   },
   
   "blogs": {
@@ -163,7 +212,10 @@
     "cancel": "Cancel",
     "contextLabel": "Context",
     "context": "Section",
-    "empty": "No sections available"
+    "empty": "No sections available",
+    "selectSectionsPlaceholder": "Select step",
+    "loading": "Loading...",
+    "noChanges": "No changes"
   }
 
 

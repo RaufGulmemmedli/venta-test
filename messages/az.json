@@ -14,11 +14,20 @@
     "dashboard": "Panel",
     "homePage": "Ana səhifə",
     "cvPage": "CV",
+    "vacancyPage": "Vakansia",
     "settings": "Ayarlar",
     "section": "Bölmə",
     "atribut": "Atribut",
-    "step": "Addım",
+    "step": "Step",
     "cvs": "CV-lər",
+    "activity": "Fəaliyyət",
+    "company": "Şirkət",
+    "department": "Departament",
+    "trainingPage": "Təlim",
+    "trainingRooms": "Otaqlar",
+    "trainingFloors": "Mərtəbələr",
+    "trainingCategory": "Təlim Kateqoriyası",
+    "trainingRoomParameters": "Otaq Parametriləri",
     "assignUser": "İstifadəçi təyin et",
     "logout": "Çıxış",
     "profile": "Profil",
@@ -44,7 +53,9 @@
   },
   "cvPage": {
     "title": "CV "
-  
+  },
+  "vacancy": {
+    "title": "vakansia"
   },
   "attribute": {
     "title": "CV Atributları yarat",
@@ -52,21 +63,47 @@
     "editAttribute": "Atributu redaktə et",
     "deleteAttribute": "Atributu sil",
     "type": "Tip",
-  "inputHeader": "Atribut başlığı",
-  "selectTypePlaceholder": "Seçim edin",
-  "headerSelectPlaceholder": "Başlıq",
-  "attributeTypeLabel": "Atribut növü",
-  "inputTitleLabel": "İnput başlığı",
-  "inputTitlePlaceholder": "İnput başlığını daxil edin",
-  "addValue": "Dəyər əlavə et",
-  "showInTable": "Cədvəldə görsənsin",
-  "required": "Məcburi",
-  "showInPrint": "Printdə göstər",
-  "addable": "Əlavə edilə bilir",
-  "yes": "Bəli",
-  "no": "Xeyr"
+    "inputHeader": "Atribut başlığı",
+    "selectTypePlaceholder": "Seçim edin",
+    "headerSelectPlaceholder": "Başlıq",
+    "attributeTypeLabel": "Atribut növü",
+    "inputTitleLabel": "İnput başlığı",
+    "inputTitlePlaceholder": "İnput başlığını daxil edin",
+    "addValue": "Dəyər əlavə et",
+    "showInTable": "Cədvəldə görsənsin",
+    "required": "Məcburi",
+    "showInPrint": "Printdə göstər",
+    "addable": "Əlavə edilə bilir",
+    "yes": "Bəli",
+    "no": "Xeyr",
+    "search_placeholder": "Axtar...",
+    "all": "Hamısı",
+    "loading": "Yüklənir...",
+    "noData": "Məlumat yoxdur",
+    "deleteDescription": "Bu əməliyyat geri qaytarıla bilməz. Bu məhsulu silmək istədiyinizə əminsinizmi?",
+    "deleteTitle": "Silinsin?",
+    "sectionLabel": "Bölmə",
+    "sectionPlaceholder": "Bölmə seçin",
+    "important": "Vacib",
+    "selectSection": "Bölmə seçin",
+    "cv": "CV",
+    "vacancy": "Vakansia",
+    "active": "Aktiv",
+    "passive": "Passiv",
+    "next": "Növbəti",
+    "previous": "Əvvəlki",
+    "table": {
+      "id": "ID",
+      "name": "Ad",
+      "sectionName": "Bölmə adı",
+      "valuable": "Dəyərli",
+      "visible": "Görünən",
+      "important": "Vacib",
+      "type": "Tip",
+      "status": "Status",
+      "actions": "Əməliyyatlar"
+    }
   },
-  
   "blogs": {
     "title": "Bloqlar",
     "addBlog": "Bloq əlavə et",
@@ -86,10 +123,10 @@
     "next": "Növbəti",
     "loading": "Yüklənir...",
     "noData": "Məlumat yoxdur",
-  "actions": "Əməliyyatlar",
-  "selectPlaceholder": "Seçim edin",
-  "yes": "Hə",
-  "no": "Yox"
+    "actions": "Əməliyyatlar",
+    "selectPlaceholder": "Seçim edin",
+    "yes": "Hə",
+    "no": "Yox"
   },
   "selectDialog": {
     "title": "Seçim dəyərlərini əlavə et",
@@ -97,25 +134,32 @@
     "noValues": "Heç bir dəyər yoxdur."
   },
   "step": {
-    "title": "CV Addımları",
-    "addStep": "Addım əlavə et",
-    "editStep": "Addımı redaktə et",
-    "deleteStep": "Addımı sil",
+    "cv": "CV",
+    "vacancy": "Vakansia",
+    "title": "Steplər",
+    "addStep": "Step əlavə et",
+    "editStep": "Stepı redaktə et",
+    "deleteStep": "Stepı sil",
     "newStep": "Yeni Step",
-    "stepNameLabel": "Addım adı",
-  "stepNamePlaceholder": "Step adını daxil edin",
-  "typeLabel": "Tip",
-  "deleteDescription": "Bu əməliyyat geri qaytarıla bilməz. Bu məhsulu silmək istədiyinizə əminsinizmi?",
-  "deleteTitle": "Silinsin?",
-  "search_placeholder": "Axtar...",
-  "search": "Axtar",
-  "all": "Hamısı",
-  "active": "Aktiv",
-  "passive": "Passiv"
-
+    "stepNameLabel": "Step adı",
+    "stepNamePlaceholder": "Step adını daxil edin",
+    "typeLabel": "Tip",
+    "deleteDescription": "Bu əməliyyat geri qaytarıla bilməz. Bu məhsulu silmək istədiyinizə əminsinizmi?",
+    "deleteTitle": "Silinsin?",
+    "search_placeholder": "Axtar...",
+    "search": "Axtar",
+    "all": "Hamısı",
+    "active": "Aktiv",
+    "passive": "Passiv",
+    "tableTitle": "Başlıq",
+    "module": "Modul",
+    "statusColumn": "Status",
+    "actions": "Əməliyyatlar"
   },
   "section": {
-    "title": "CV Bölmələri",
+    "cv": "CV",
+    "vacancy": "Vakansia",
+    "title": "Bölmələri",
     "addSection": "Bölmə əlavə et",
     "editSection": "Bölməni redaktə et",
     "deleteSection": "Bölməni sil",
@@ -129,7 +173,7 @@
     "sectionNamePlaceholder": "Bölmə adını daxil edin",
     "sectionNameLabel": "Bölmə adı",
     "selectSectionsPlaceholder": "Bölmələri seçin",
-    "selectStepsPlaceholder": "Addımları seçin",
+    "selectStepsPlaceholder": "Stepləri seçin",
     "deleteDescription": "Bu əməliyyat geri qaytarıla bilməz. Bu məhsulu silmək istədiyinizə əminsinizmi?",
     "deleteTitle": "Silinsin?",
     "search_placeholder": "Axtar...",
@@ -137,9 +181,15 @@
     "all": "Hamısı",
     "active": "Aktiv",
     "passive": "Passiv",
-    "typeLabel": "Tip"
-    
-
+    "typeLabel": "Tip",
+    "type": "Tip",
+    "table": {
+      "id": "ID",
+      "name": "Ad",
+      "stepName": "Step adı",
+      "status": "Status",
+      "actions": "Əməliyyatlar"
+    }
   },
   "AlertDialog": {
     "title": "Silinsin?",
@@ -148,21 +198,44 @@
     "cancel": "Ləğv et"
   },
   "StepReorder": {
-    "title": "Addımları Yenidən Sırala",
-    "description": "Addımları yeni sıraya salmaq üçün sürükləyin.",
+    "title": "Stepləri Yenidən Sırala",
+    "description": "Stepləri yeni sıraya salmaq üçün sürükləyin.",
     "confirm": "Yadda saxla",
     "cancel": "Ləğv et",
-    "contextLabel": "Kontekst",
-    "context": "Addım"
+    "contextLabel": "Step",
+    "context": "Step"
   },
   "SectionReorder": {
     "title": "Bölmələri Yenidən Sırala",
     "description": "Bölmələri yeni sıraya salmaq üçün sürükləyin.",
     "confirm": "Yadda saxla",
     "cancel": "Ləğv et",
-    "contextLabel": "Kontekst",
+    "contextLabel": "Step",
     "context": "Bölmə",
-    "empty": "Mövcud bölmə yoxdur"
+    "empty": "Mövcud bölmə yoxdur",
+    "selectSectionsPlaceholder": "Step seçin",
+    "loading": "Yüklənir...",
+    "noChanges": "Dəyişiklik yoxdur"
+  },
+  "AttributReorder": {
+    "title": "Atributları Yenidən Sırala",
+    "description": "Atributları yeni sıraya salmaq üçün sürükləyin.",
+   "type": "Tip",
+   "selectType":" Tip seçin",
+    "confirm": "Yadda saxla",
+    "cancel": "Ləğv et",
+    "contextLabel": "Bölmə",
+    "context": "Atribut",
+    "empty": "Mövcud atribut yoxdur",
+    "selectAttributsPlaceholder": "Bölmə seçin",
+    "noChanges": "Dəyişiklik yoxdur",
+    "selectTypeFirst": "Əvvəlcə tip seçin",
+    "loading": "Yüklənir...",
+    "hasChanges": "Dəyişikliklər var",
+    "noItemsForSection": "Bu bölmə üçün atribut yoxdur",
+    "selectSectionPrompt": "Bölmə seçin",
+    "confirmSaving": "Dəyişiklikləri yadda saxlayın?"
+
   }
 
 }

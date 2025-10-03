@@ -44,7 +44,7 @@ export const CvTitleCreatePage: React.FC = () => {
               onChange={setDropdownValue}
               options={[
                 { value: "op  tion1", label: "Cv" },
-                { value: "option2", label: "Vakansiya" },
+                { value: "option2", label: "Vakansia" },
               ]}
               placeholder={tc("selectPlaceholder")}
             />

@@ -1,8 +1,17 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { sectionService, type Section, type SectionsParams, type CreateSectionRequest, type UpdateSectionRequest } from "@/lib/services/sectionService"
+import {
+    sectionService,
+    type SectionI18n,
+    type SectionsParams,
+    type CreateSectionRequest,
+    type UpdateSectionRequest,
+    type CreateSectionI18nRequest,
+    type UpdateSectionI18nRequest
+} from "@/lib/services/sectionService"
 import { toast } from "@/hooks/use-toast"
+import { stepKeys } from "@/lib/hooks/useStep"
 
 export const sectionKeys = {
     all: ['sections'] as const,
@@ -13,57 +22,40 @@ export const sectionKeys = {
 }
 
 export function useSections(params?: SectionsParams, options?: any) {
-    return useQuery<Section[], Error>({
+    return useQuery<SectionI18n[], Error>({
         queryKey: sectionKeys.list(params ?? {}),
         queryFn: () => sectionService.getSections(params ?? {}),
         ...options,
     })
 }
-export function useAllSections(context?: number) {
-    return useQuery<Section[], Error>({
-        queryKey: [...sectionKeys.all, 'all', context],
-        queryFn: () => sectionService.getAllSections(context),
-        enabled: context != null,
+
+export function useAllSections(stepId?: number) {
+    return useQuery<SectionI18n[], Error>({
+        queryKey: [...sectionKeys.all, 'all', stepId],
+        queryFn: () => sectionService.getAllSections(stepId),
+        enabled: stepId != null,
     })
 }
+
 export type CreateSectionVars = Omit<CreateSectionRequest, 'isActive'> & { isActive?: boolean }
 export interface EditSectionVars { id: number; data: CreateSectionVars }
 
 export function useCreateSection() {
     const queryClient = useQueryClient()
-    return useMutation<Section | any, unknown, CreateSectionVars>({
-        mutationFn: (vars) => sectionService.createSection({ ...vars, isActive: true }),
+    return useMutation<any, unknown, CreateSectionI18nRequest>({
+        mutationFn: (payload) => sectionService.createSection(payload),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: sectionKeys.all })
-            toast({ title: 'Success', description: 'Section yaradıldı.' })
-        },
-        onError: (error: any) => {
-            toast({
-                title: 'Error',
-                description: error?.response?.data?.message || 'Section yaradılmadı.',
-                variant: 'destructive',
-            })
+            queryClient.invalidateQueries({ queryKey: sectionKeys.all, refetchType: 'active' })
         },
     })
 }
 
 export function useEditSection() {
     const queryClient = useQueryClient()
-    return useMutation<Section | any, unknown, EditSectionVars>({
-        mutationFn: (vars) => {
-            const body: UpdateSectionRequest = { id: vars.id, ...vars.data, isActive: vars.data.isActive ?? true }
-            return sectionService.editSection(body)
-        },
+    return useMutation<any, unknown, { id: number; data: Omit<UpdateSectionI18nRequest, 'id'> }>({
+        mutationFn: ({ id, data }) => sectionService.editSection({ id, ...data }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: sectionKeys.all })
-            toast({ title: 'Success', description: 'Section yeniləndi.' })
-        },
-        onError: (error: any) => {
-            toast({
-                title: 'Error',
-                description: error?.response?.data?.message || 'Section yenilənmədi.',
-                variant: 'destructive',
-            })
+            queryClient.invalidateQueries({ queryKey: sectionKeys.all, refetchType: 'active' })
         },
     })
 }
@@ -85,14 +77,13 @@ export function useDeleteSection() {
         },
     })
 }
-export interface SectionsQueueVars { sections: { id: number; name: string; context: number }[] }
+
+export interface SectionsQueueVars { ids: number[]; stepId?: number }
+
 export function useEditSectionsQueue() {
     const queryClient = useQueryClient()
     return useMutation<any, unknown, SectionsQueueVars>({
-        mutationFn: (vars) => {
-            const payload: CreateSectionRequest[] = vars.sections.map(s => ({ name: s.name, context: s.context, isActive: true }))
-            return sectionService.editSectionsQueue(payload)
-        },
+        mutationFn: (vars) => sectionService.editSectionsQueue(vars.ids, vars.stepId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: sectionKeys.all })
             toast({ title: 'Success', description: 'Sıra yeniləndi.' })
@@ -106,6 +97,7 @@ export function useEditSectionsQueue() {
         },
     })
 }
+
 export interface SectionStatusVars { id: number; isActive: boolean }
 export function useEditSectionStatus() {
     const queryClient = useQueryClient()

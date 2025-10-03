@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, Children } from "react"
 import { useTranslations } from "next-intl"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -44,37 +44,76 @@ export function AdminSidebar({ className }: SidebarProps) {
       title: t("cvPage"),
       icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
       href: "/cv",
-      children:
-        [
-          {
-            title: t("cvs"),
-            icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
-            href: "/cv/cvs",
-          },
-          {
-            title: t("settings"),
-            icon: (props: React.SVGProps<SVGSVGElement>) => <Settings {...props} className="text-red-500" />,
-            href: "#",
-            children: [
-              {
-                title: t("atribut"),
-                icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
-                href: "/cv/attribute",
-              },
-              {
-                title: t("section"),
-                icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
-                href: "/cv/section",
-              },
-              {
-                title: t("step"),
-                icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
-                href: "/cv/step",
-              }
-            ]
-          }
-        ]
+
     },
+    {
+      title: t("vacancyPage"),
+      icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+      href: "/vacancy",
+    },
+    {
+      title: t("trainingPage"),
+      icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+      href: "/training",
+    },
+    {
+      title: t("settings"),
+      icon: (props: React.SVGProps<SVGSVGElement>) => <Settings {...props} className="text-red-500" />,
+      href: "#",
+      children: [
+        {
+          title: t("atribut"),
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          href: "/settings/attribute",
+        },
+        {
+          title: t("section"),
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          href: "/settings/section",
+        },
+        {
+          title: t("step"),
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          href: "/settings/step",
+        },
+        {
+          title: t("activity"),
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          href: "/cv/activity",
+        },{
+          title: t("company"),
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          href: "/cv/company",
+        },
+        {
+          title: t("department"),
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          href: "/cv/department",
+        },{
+          title: t("trainingRooms"),
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          href: "#",
+          children: [
+            {
+              title: t("trainingFloors"),
+              icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+              href: "/training/floor",
+            },
+            {
+              title: t("trainingRooms"),
+              icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+              href: "/training/room",
+            },
+            {
+              title: t("trainingRoomParameters"),
+              icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+              href: "/training/room-parameters",
+            },
+          ],
+        }
+      ]
+    },
+
     // {
     //   title: t("blogs"),
     //   icon: FileText,
@@ -187,7 +226,7 @@ export function AdminSidebar({ className }: SidebarProps) {
   )
 }
 
-// Recursive menu node renderer
+
 function MenuNode({ item, level }: { item: any; level: number }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -206,7 +245,6 @@ function MenuNode({ item, level }: { item: any; level: number }) {
     })
   }
 
-  // compute open state per node using URL
   const openByUrl = hasChildren && (isActive(groupKey) || hasActiveDescendant(item))
   const [open, setOpen] = useState(openByUrl)
 

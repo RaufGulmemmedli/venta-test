@@ -3,15 +3,16 @@ import React, { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import CreateSectionModal from "@/containers/Cv/pages/CreateSectionModal"
+import CreateSectionModal from "@/containers/settings/pages/CreateSectionModal"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChevronLeft, ChevronRight, Edit, Replace, Search, Trash } from "lucide-react"
 import { useSections, useDeleteSection, useEditSectionStatus } from "@/lib/hooks/useSection"
 import AlertDialogComponent from "@/components/AlertDiolog/AlertDiolog"
-import SectionsReorderDialog from "@/containers/Cv/pages/SectionsReorderDialog"
+import SectionsReorderDialog from "@/containers/settings/pages/SectionsReorderDialog"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import Dropdown from "@/components/ui/Dropdown"
+import { useAllSteps } from "@/lib/hooks/useStep"
 
 export default function SectionContainer() {
   const [open, setOpen] = useState(false)
@@ -24,6 +25,10 @@ export default function SectionContainer() {
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<'all' | 'true' | 'false'>('all')
+  const [statusFilterStep, setStatusFilterStep] = useState<string>('all') 
+  const [statusFilterSection, setStatusFilterSection] = useState<'all' | 'cv' | 'vakansia'>('all')
+
+  const { data: steps = [], isLoading: stepsLoading } = useAllSteps(undefined)
 
   React.useEffect(() => {
     const h = setTimeout(() => setSearch(searchInput.trim()), 500)
@@ -34,7 +39,9 @@ export default function SectionContainer() {
     pageNumber,
     pageSize,
     value: search || undefined,
-    isActive: statusFilter === 'all' ? undefined : statusFilter === 'true'
+    isActive: statusFilter === 'all' ? undefined : statusFilter === 'true',
+    type: statusFilterSection === 'all' ? undefined : statusFilterSection === 'cv' ? "cv" : "vakansia",
+    stepId: statusFilterStep === 'all' ? undefined : Number(statusFilterStep),
   }
 
   const { data: sections = [], isLoading, isError } = useSections(queryParams)
@@ -55,6 +62,14 @@ export default function SectionContainer() {
   const deleteSection = useDeleteSection()
   const editStatus = useEditSectionStatus()
   const t = useTranslations("section")
+
+  const getSectionTitle = (s: any) => {
+    const trs = Array.isArray(s?.translations) ? s.translations : []
+    const pick = trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').trim().toLowerCase() === 'az')
+      || trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').trim().toLowerCase() === 'en')
+      || trs[0]
+    return (pick?.title ?? '').trim() || `#${s?.id}`
+  }
 
   return (
     <div className="p-6">
@@ -95,6 +110,37 @@ export default function SectionContainer() {
             className="w-full"
             options={[
               { value: 'all', label: t("all") || "Hamısı" },
+              ...((steps as any[]).map((s) => {
+                const trs = Array.isArray(s?.translations) ? s.translations : []
+                const az = trs.find((tr: any) => String(tr?.lang ?? '').trim().toLowerCase() === 'az')
+                const en = trs.find((tr: any) => String(tr?.lang ?? '').trim().toLowerCase() === 'en')
+                const label = (az?.title || en?.title || trs[0]?.title || s?.moduleName || `#${s?.id}`) as string
+                return { value: String(s.id), label }
+              }))
+            ]}
+            value={statusFilterStep}
+            onChange={(val: string) => { setStatusFilterStep(val); setPageNumber(1) }}
+            placeholder={stepsLoading ? (t("loading") || "Yüklənir...") : (t("selectStep") || "Step seçin")}
+            disabled={stepsLoading}
+          />
+        </div>
+        <div className="flex gap-2 w-56">
+          <Dropdown
+            className="w-full"
+            options={[
+              { value: 'all', label: t("all") || "Hamısı" },
+              { value: 'cv', label: t("cv") || "Cv" },
+              { value: 'vakansia', label: t("vacancy") || "Vakansia" },
+            ]}
+            value={statusFilterSection}
+            onChange={(val: string) => { setStatusFilterSection(val as any); setPageNumber(1) }}
+          />
+        </div>
+        <div className="flex gap-2 w-56">
+          <Dropdown
+            className="w-full"
+            options={[
+              { value: 'all', label: t("all") || "Hamısı" },
               { value: 'true', label: t("active") || "Aktiv" },
               { value: 'false', label: t("passive") || "Passiv" },
             ]}
@@ -107,13 +153,13 @@ export default function SectionContainer() {
         <Table className="text-sm w-full">
           <TableHeader>
             <TableRow className="bg-gray-50 hover:bg-gray-50">
-              <TableHead className="px-3 py-2 text-lg">ID</TableHead>
-              <TableHead className="px-3 py-2 text-lg">Ad</TableHead>
-              <TableHead className="px-3 py-2 text-lg">Kontekst</TableHead>
-              <TableHead className="px-3 py-2 text-lg">Sıra</TableHead>
-              <TableHead className="px-3 py-2 text-lg">Sections</TableHead>
-              <TableHead className="px-3 py-2 text-lg">Status</TableHead>
-              <TableHead className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur z-10">Əməliyyatlar</TableHead>
+              <TableHead className="px-3 py-2 text-lg">{t("table.id")}</TableHead>
+              <TableHead className="px-3 py-2 text-lg">{t("table.name")}</TableHead>
+              <TableHead className="px-3 py-2 text-lg">{t("table.stepName")}</TableHead>
+              <TableHead className="px-3 py-2 text-lg">{t("table.status")}</TableHead>
+              <TableHead className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur z-10">
+                {t("table.actions")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -135,12 +181,8 @@ export default function SectionContainer() {
             {!isLoading && !isError && sections.map((s: any) => (
               <TableRow key={s.id}>
                 <TableCell className="px-3 py-4 text-base">{s.id}</TableCell>
-                <TableCell className="px-3 py-4 text-base font-medium">{s.name}</TableCell>
-                <TableCell className="px-3 py-4 text-base">
-                  {s.context === 1 ? 'Cv' : s.context === 2 ? 'Vakansiya' : '-'}
-                </TableCell>
-                <TableCell className="px-3 py-4 text-base">{s.order}</TableCell>
-                <TableCell className="px-3 py-4 text-base">{s.sections?.length ?? 0}</TableCell>
+                <TableCell className="px-3 py-4 text-base font-medium">{getSectionTitle(s)}</TableCell>
+                <TableCell className="px-3 py-4 text-base">{s.stepName ?? '-'}</TableCell>
                 <TableCell className="px-3 py-4">
                   <Switch
                     checked={!!s.isActive}
