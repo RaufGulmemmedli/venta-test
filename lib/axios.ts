@@ -2,10 +2,7 @@
 import axios from "axios"
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL ||  "http://localhost/api";
-  console.log( process.env.NEXT_PUBLIC_BASE_URL,"process.env.NEXT_PUBLIC_API_BASE_URL")
-
-  console.log(process.env.NODE_ENV,"process.env.NODE_ENV") 
+  process.env.NEXT_PUBLIC_BASE_URL || "http://10.40.10.42:7011/api";
 
 export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -16,9 +13,12 @@ export const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   async (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    // Only access localStorage in browser environment
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
     }
 
     config.headers["Accept-Language"] = getCurrentLocaleFromCookie();
