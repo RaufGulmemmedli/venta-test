@@ -220,6 +220,18 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        
+        // Validate: Check if all languages have values
+        const filledLanguages = LANGS.filter(lang => (inputTitleLanguages[lang] || '').trim() !== '')
+        if (filledLanguages.length > 0 && filledLanguages.length < 3) {
+            const { toast } = await import("sonner")
+            const missingLangs = LANGS.filter(lang => !(inputTitleLanguages[lang] || '').trim())
+            toast.error(`Xəta: Bütün dillərdə məlumat doldurulmalıdır!\nDoldurulmayan dillər: ${missingLangs.map(l => l.toUpperCase()).join(', ')}`, {
+                duration: 5000
+            })
+            return
+        }
+        
         // EDIT
         if (isEdit) {
             const body = buildEditPayload()
@@ -402,6 +414,33 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
                     </div>
                     
                     <hr className="border-gray-300" />
+
+                    {/* Warning banner when language values don't match */}
+                    {(() => {
+                        const filledLanguages = LANGS.filter(lang => (inputTitleLanguages[lang] || '').trim() !== '')
+                        const emptyLanguages = LANGS.filter(lang => !(inputTitleLanguages[lang] || '').trim())
+                        const allMatch = filledLanguages.length === 0 || filledLanguages.length === 3
+                        
+                        if (!allMatch) {
+                            return (
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                                    <div className="flex items-start gap-2">
+                                        <span className="text-red-600 font-semibold">⚠️</span>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-semibold text-red-800">
+                                                Diqqət: Bütün dillərdə məlumat doldurulmalıdır!
+                                            </p>
+                                            <p className="text-xs text-red-600 mt-1">
+                                                Doldurulmuş: {filledLanguages.map(l => l.toUpperCase()).join(', ') || 'Heç biri'} | 
+                                                Doldurulmamış: {emptyLanguages.map(l => l.toUpperCase()).join(', ')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        }
+                        return null
+                    })()}
 
                     <div className="space-y-4 mt-2">
                         <div>

@@ -73,6 +73,18 @@ const CreateStepModal: React.FC<CreateStepModalProps> = ({ onClose, onSaved, id 
 
     const handleSave = async () => {
         if (!contextValue) return
+        
+        // Validate: Check if all languages have values
+        const filledLanguages = (['az', 'en', 'ru'] as const).filter(lang => (titles[lang] || '').trim() !== '')
+        if (filledLanguages.length > 0 && filledLanguages.length < 3) {
+            const { toast } = await import("sonner")
+            const missingLangs = (['az', 'en', 'ru'] as const).filter(lang => !(titles[lang] || '').trim())
+            toast.error(`Xəta: Bütün dillərdə məlumat doldurulmalıdır!\nDoldurulmayan dillər: ${missingLangs.map(l => l.toUpperCase()).join(', ')}`, {
+                duration: 5000
+            })
+            return
+        }
+        
         const translations = (["az", "en", "ru"] as const)
             .map(lang => ({
                 lang,
@@ -114,6 +126,35 @@ const CreateStepModal: React.FC<CreateStepModalProps> = ({ onClose, onSaved, id 
                 </div>
             </div>
             <hr />
+            
+            {/* Warning banner when language values don't match */}
+            {(() => {
+                const LANGS = ['az', 'en', 'ru'] as const
+                const filledLanguages = LANGS.filter(lang => (titles[lang] || '').trim() !== '')
+                const emptyLanguages = LANGS.filter(lang => !(titles[lang] || '').trim())
+                const allMatch = filledLanguages.length === 0 || filledLanguages.length === 3
+                
+                if (!allMatch) {
+                    return (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-md mb-4">
+                            <div className="flex items-start gap-2">
+                                <span className="text-red-600 font-semibold">⚠️</span>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-red-800">
+                                        Diqqət: Bütün dillərdə məlumat doldurulmalıdır!
+                                    </p>
+                                    <p className="text-xs text-red-600 mt-1">
+                                        Doldurulmuş: {filledLanguages.map(l => l.toUpperCase()).join(', ') || 'Heç biri'} | 
+                                        Doldurulmamış: {emptyLanguages.map(l => l.toUpperCase()).join(', ')}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+                return null
+            })()}
+            
             <Tabs value={activeLang} onValueChange={(v) => setActiveLang(v as any)}>
                 <TabsList>
                     <TabsTrigger value="az">AZ</TabsTrigger>
