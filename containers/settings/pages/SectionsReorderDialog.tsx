@@ -109,8 +109,8 @@ export default function SectionsReorderDialog({ open, onOpenChange }: SectionsRe
 
     const handleSave = () => {
         if (!stepId) return
-        const ids = items.map(s => s.id)
-        mutation.mutate({ ids, stepId }, { onSuccess: () => onOpenChange(false) })
+        const sectionIdsInOrder = items.map(s => s.id)
+        mutation.mutate({ stepId, sectionIdsInOrder }, { onSuccess: () => onOpenChange(false) })
     }
 
     return (

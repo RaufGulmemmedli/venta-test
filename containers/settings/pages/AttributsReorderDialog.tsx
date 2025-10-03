@@ -19,7 +19,12 @@ interface AttributsReorderDialogProps {
   onOpenChange: (v: boolean) => void
 }
 
-interface DraggableAttribut { id: number; name: string; context: number }
+interface DraggableAttribut { 
+  id: number; 
+  name: string; 
+  context: number; 
+  translationId: number; // translation.id dəyəri
+}
 
 const contextLabel = (c: number) =>
   c === 1 ? 'CV' : c === 2 ? 'vakansia' : 'Section'
@@ -97,6 +102,7 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
       .slice()
       .map((a: any) => {
         let display = a.name || ''
+        let translationId = a.id // fallback olaraq a.id istifadə et
         
         if (!display) {
           const transArr = Array.isArray(a?.setCreateAttributeRequest) ? a.setCreateAttributeRequest : []
@@ -111,12 +117,18 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
           display = `#${a.id}`
         }
 
+        // translation.id dəyərini tap
+        if (a.translation && a.translation.id) {
+          translationId = a.translation.id
+        }
+
         const translationOrder = a.sortOrder ?? 0
 
         return {
           id: a.id,
           name: display,
           context: a.sectionId,
+          translationId: translationId,
           _order: translationOrder
         }
       })
@@ -124,10 +136,10 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
         if (a._order !== b._order) return a._order - b._order
         return a.id - b.id
       })
-      .map(({ id, name, context }) => ({ id, name, context }))
+      .map(({ id, name, context, translationId }) => ({ id, name, context, translationId }))
 
     const same = mapped.length === items.length && mapped.every((m, i) =>
-      m.id === items[i].id && m.name === items[i].name && m.context === items[i].context
+      m.id === items[i].id && m.name === items[i].name && m.context === items[i].context && m.translationId === items[i].translationId
     )
     if (!same) {
       setItems(mapped)
@@ -154,9 +166,9 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
 
   const handleSave = () => {
     if (!sectionId || !items.length || !hasChanged) return
-    const ids = items.map(i => i.id)
+    const translationIds = items.map(i => i.translationId)
     mutation.mutate(
-      { sectionId, attributeIdsInOrder: ids },
+      { sectionId, attributeIdsInOrder: translationIds },
       {
         onSuccess: () => {
           toast({ description: t("saved") || "Yeniləndi" })
@@ -192,7 +204,7 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
         isChangeable: true,
         isMultiple: attributeType === "6",
         isValuable: false,
-        isVisiable: true,
+        isVisible: true,
         isActive: true,
         setCreateAttributeRequest: [
           {
@@ -325,6 +337,7 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
                         <div className="space-y-2">
                           <h3 className="font-medium text-sm line-clamp-2">{it.name}</h3>
                           <div className="text-xs text-gray-500">ID: {it.id}</div>
+                          <div className="text-xs text-blue-600">Translation ID: {it.translationId}</div>
                         </div>
                       </CardContent>
                     </Card>

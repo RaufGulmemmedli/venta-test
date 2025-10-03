@@ -10,20 +10,30 @@ export interface UpdateAttributRequest extends CreateAttributRequest {
 }
 
 export interface CreateAttributI18nRequest {
+    id?: number
     sectionId?: number
+    sectionIds?: number[]
     valueType?: number
-    isChangeable?: boolean
-    isMultiple?: boolean
     isValuable?: boolean
     isVisible?: boolean
     isPrinted?: boolean
-    attributeSets?: { id?: number; name: string; language: string }[]
+    isIncluded?: boolean
+    isImportant?: boolean
     isActive?: boolean
-    type?: string
+    attributeSets?: { id?: number; name: string; language: string }[]
 }
 
-export interface UpdateAttributI18nRequest extends CreateAttributI18nRequest {
+export interface UpdateAttributI18nRequest {
     id: number
+    valueType?: number
+    isValuable?: boolean
+    isVisible?: boolean
+    isPrinted?: boolean
+    isIncluded?: boolean
+    isImportant?: boolean
+    isActive?: boolean
+    sectionIds?: number[]
+    attributeSets?: { id?: number; name: string; language: string }[]
 }
 
 export interface AttributResponse {
@@ -52,13 +62,12 @@ export interface AttributI18n {
     isValuable?: boolean
     isVisible?: boolean
     isPrinted?: boolean
+    isIncluded?: boolean
     isImportant?: boolean
     name?: string
 
-    // Back-compat alias-lar (UI hazırda bunları oxuyur)
-    isVisiable?: boolean
-    isImportand?: boolean
-    setCreateAttributeRequest?: { id?: number; name: string; language: string }[]
+
+    attributeSets?: { id?: number; name: string; language: string }[]
 }
 
 export interface AttributsListApiRaw {
@@ -75,17 +84,16 @@ export interface AttributsParams {
     isActive?: boolean
     sectionId?: number
     type?: string
-    // New filters
     valueType?: number
     isValuable?: boolean
     isVisible?: boolean
     isImportant?: boolean
 }
 export interface AttributsValueParams {
-    page?: number
-    pageSize?: number
+    PageNumber?: number
+    PageSize?: number
     attributeId?: number
-    name?: string
+    SearchTerm?: string
 }
 export interface AtributQueueItem { stepId: number; moduleId: number }
 export interface UpdateAttributOrderPayload {
@@ -95,7 +103,10 @@ export interface UpdateAttributOrderPayload {
 
 export interface CreateAttributeValueLanguagesRequest {
     attributeId: number
-    languages: { name: string; language: string }[]
+    languages?: { name: string; language: string }[]
+    attributeValueDtos?: {
+        value: { value: string; language: string }[]
+    }[]
 }
 export interface UpdateAttributeValueItem {
     attributeId: number
@@ -120,14 +131,20 @@ export interface AttributeValueGroup {
 
 export interface UpdateAttributeValuesGroupRequest {
     attributeId: number
-    languages: {
+    languages?: {
         id?: number
-        attributeValueId?: number
         value: string
         language: string
     }[]
+    attributeValue?: {
+        id?: number
+        attributeValueSets: {
+            value: string
+            language: string
+        }[]
+    }[]
 }
-// export interface AttributeStatusPayload {
+
 export const attributService = {
     getAttributs: async (params: AttributsParams = {}): Promise<AttributI18n[]> => {
         const searchParams = new URLSearchParams()
@@ -152,18 +169,16 @@ export const attributService = {
             return items.map((it) => ({
                 id: it.id,
                 sectionId: it.sectionId ?? 0,
-                sectionName: it.sectionName ?? '',            // ADDED: show in table
+                sectionName: it.sectionName ?? '',           
                 isActive: it.isActive,
                 sortOrder: it.sortOrder ?? 0,
-
                 valueType: it.valueType,
                 isValuable: it.isValuable,
                 isVisible: it.isVisible,
                 isPrinted: it.isPrinted,
+                isIncluded: it.isIncluded,
                 isImportant: it.isImportant,
                 name: it.name,
-
-                // aliases for existing UI
                 isVisiable: it.isVisible,
                 isImportand: it.isImportant,
                 setCreateAttributeRequest: it.name
@@ -181,42 +196,35 @@ export const attributService = {
 
         return arr
     },
-    getAttributValues: async (params: AttributsValueParams = {}): Promise<AttributeValueGroup[]> => {
+    getAttributValues: async (params: AttributsValueParams = {}): Promise<any> => {
         const searchParams = new URLSearchParams()
-        if (params.page != null) searchParams.set('Page', String(params.page))
-        if (params.pageSize != null) searchParams.set('PageSize', String(params.pageSize))
-        if (params.attributeId != null) searchParams.set('AttributId', String(params.attributeId))
-        if (params.name != null) searchParams.set('Name', String(params.name))
+        if (params.attributeId != null) searchParams.set('attributeId', String(params.attributeId))
+        if (params.PageNumber != null) searchParams.set('PageNumber', String(params.PageNumber))
+        if (params.PageSize != null) searchParams.set('PageSize', String(params.PageSize))
+        if (params.SearchTerm != null) searchParams.set('SearchTerm', String(params.SearchTerm))
 
         const qs = searchParams.toString()
-        const url = qs ? `AttributeValue/get-by-attribute-id?${qs}` : 'AttributeValue/get-by-attribute-id'
+        const url = qs ? `AttributeValues/get-by-attribute-id?${qs}` : 'AttributeValue/get-by-attribute-id'
         const res = await axiosInstance.get(url)
-        const data: any = res.data
-        const arr: AttributeValueGroup[] = Array.isArray(data?.responseValue) ? data.response : []
-        return arr
+        return res.data
     },
     getAllAttributs: async (sectionId?: number, type?: string): Promise<AttributI18n[]> => {
-        // Correct query construction: ?SectionId=29&Type=2 (no Type%3D)
         const params = new URLSearchParams()
         if (sectionId != null) params.set('SectionId', String(sectionId))
         if (type) params.set('Type', type) // was mistakenly 'Type=' before
 
         let url: string
         if (params.has('SectionId')) {
-            // Desired form: Attributes/get-by-section-id?SectionId=29&Type=2
             url = `Attributes/get-by-section-id?${params.toString()}`
         } else if (params.has('Type')) {
-            // Fallback when only type is provided
             url = `Attributes/get-by-filter?${params.toString()}`
         } else {
-            // Generic fallback (adjust if backend has a different endpoint)
             url = 'Attributes/get-all-with-pagination?PageNumber=1&PageSize=1000'
         }
 
         const res = await axiosInstance.get(url)
         const data: any = res.data
 
-        // Handle new API response format with responseValue array
         if (Array.isArray(data?.responseValue)) {
             return data.responseValue.map((item: any) => ({
                 id: item.id,
@@ -227,18 +235,18 @@ export const attributService = {
                 isValuable: item.isValuable,
                 isVisible: item.isVisible,
                 isPrinted: item.isPrinted,
+                isIncluded: item.isIncluded,
                 isImportant: item.isImportant,
                 name: item.name,
                 sectionName: item.sectionDto?.title ?? null,
                 
-                // Aliases for existing UI
+               
                 isVisiable: item.isVisible,
                 isImportand: item.isImportant,
                 setCreateAttributeRequest: item.name ? [{ name: item.name, language: 'az' }] : undefined,
             }))
         }
 
-        // If this endpoint also starts returning responseValue.items in future
         if (Array.isArray(data?.responseValue?.items)) {
             return (data.responseValue.items as any[]).map(it => ({
                 id: it.id,
@@ -249,6 +257,7 @@ export const attributService = {
                 isValuable: it.isValuable,
                 isVisible: it.isVisible,
                 isPrinted: it.isPrinted,
+                isIncluded: it.isIncluded,
                 isImportant: it.isImportant,
                 name: it.name,
                 isVisiable: it.isVisible,
@@ -285,18 +294,34 @@ export const attributService = {
                 valueType: v.valueType,
                 isValuable: v.isValuable,
                 isPrinted: v.isPrinted,
+                isIncluded: v.isIncluded,
                 isVisible: v.isVisible,
                 isImportant: v.isImportant,
                 isActive: v.isActive,
                 name: v.name,
                 attributeValueDtos: v.attributeValueDtos || [],
 
-                // Aliases for existing UI
+               
                 isVisiable: v.isVisible,
                 isImportand: v.isImportant,
                 setCreateAttributeRequest,
             }
         }
+        return data
+    },
+    getAllAttributesFilter: async (params: { SearchTerm?: string; Type?: string } = {}): Promise<any> => {
+        const searchParams = new URLSearchParams()
+        
+        if (params.SearchTerm) searchParams.set('SearchTerm', params.SearchTerm)
+        if (params.Type) searchParams.set('Type', params.Type)
+        
+        const qs = searchParams.toString()
+        const url = qs ? `Attributes/get-all?${qs}` : 'Attributes/get-all'
+        
+        const response = await axiosInstance.get(url)
+        const data: any = response.data
+        
+        // Return the full response structure
         return data
     },
     createAttribut: async (data: CreateAttributI18nRequest): Promise<any> => {
@@ -308,7 +333,7 @@ export const attributService = {
         return response.data
     },
     createAttributeValueBulk: async (data: CreateAttributeValueLanguagesRequest): Promise<any> => {
-        const response = await axiosInstance.post('AttributeValue/create', data)
+        const response = await axiosInstance.post('AttributeValues/create', data)
         return response.data
     },
     editAttribut: async (data: UpdateAttributI18nRequest): Promise<any> => {
@@ -316,32 +341,23 @@ export const attributService = {
         return response.data
     },
     editAttributsQueue: async (data: UpdateAttributOrderPayload): Promise<void> => {
-        await axiosInstance.put('Attribute/update-attribute-queue', data)
+        await axiosInstance.put('Attributes/update-queue', data)
     },
-    editAttributStatus: async (payload: {
-        id: number
-        valueType?: number
-        isValuable?: boolean
-        isPrinted?: boolean
-        isVisible?: boolean
-        isImportant?: boolean
-        sectionId?: number
-        isActive?: boolean
-    }): Promise<void> => {
-        const params = new URLSearchParams()
-        params.set('Id', String(payload.id))
-        if (payload.valueType != null) params.set('ValueType', String(payload.valueType))
-        if (typeof payload.isValuable === 'boolean') params.set('IsValuable', String(payload.isValuable))
-        if (typeof payload.isPrinted === 'boolean') params.set('IsPrinted', String(payload.isPrinted))
-        if (typeof payload.isVisible === 'boolean') params.set('IsVisible', String(payload.isVisible))
-        if (typeof payload.isImportant === 'boolean') params.set('IsImportant', String(payload.isImportant))
-        if (payload.sectionId != null) params.set('SectionId', String(payload.sectionId))
-        if (typeof payload.isActive === 'boolean') params.set('IsActive', String(payload.isActive))
-
-        await axiosInstance.put(`Attributes/update?${params.toString()}`)
+    editAttributStatus: async (payload: { id: number; isActive: boolean }): Promise<void> => {
+        const { id, isActive } = payload
+        const qs = `Id=${id}&IsActive=${isActive}`
+        try {
+            await axiosInstance.put(`Attributes/change-status?${qs}`)
+        } catch {
+            await axiosInstance.put(`Attributes/chage-status?${qs}`)
+        }
     },
     editAttributValue: async (data: UpdateAttributeValuesGroupRequest): Promise<any> => {
         const response = await axiosInstance.put("AttributeValues/update", data)
+        return response.data
+    },
+    editAttributeValueItem: async (data: UpdateAttributeValueRequest): Promise<any> => {
+        const response = await axiosInstance.put("AttributeValues/update-item", data)
         return response.data
     },
     deleteAttribut: async (id: number): Promise<void> => {

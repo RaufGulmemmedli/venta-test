@@ -6,30 +6,48 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { attributService } from "@/lib/services/attributServices"
 import { ChevronLeft, ChevronRight, Edit, Trash } from "lucide-react"
+import { toast } from "sonner"
 
 const LANGS = ['az','en','ru'] as const
 type Lang = typeof LANGS[number]
 
-interface GroupLanguage {
+interface ValueSet {
   id: number
-  attributeValueId: number
-  name: string
   language: string
+  value: string
 }
-interface AttributeValueGroup {
-  attributeId: number
-  languages: GroupLanguage[]
+
+interface AttributeValueItem {
+  id: number
+  sets: ValueSet[]
+}
+
+interface AttributeValueResponse {
+  responseValue: {
+    attributeId: number
+    page: {
+      items: AttributeValueItem[]
+      pageNumber: number
+      totalPages: number
+      pageSize: number
+      totalCount: number
+      hasPreviousPage: boolean
+      hasNextPage: boolean
+    }
+  }
+  statusCode: number
+  message: string
 }
 
 type AttributeValuesModalProps = {
   open: boolean
   attributeId: number | null
+  isNewAttribute?: boolean  // true = use create API, false/undefined = use update API
   onClose: (updated?: boolean) => void
 }
 
-const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attributeId, onClose }) => {
+const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attributeId, isNewAttribute = false, onClose }) => {
   const [selectedLanguage, setSelectedLanguage] = useState<Lang>('az')
-  const [groups, setGroups] = useState<AttributeValueGroup[]>([])
   const [languageValues, setLanguageValues] = useState<Record<string,string[]>>({})
   const [langValueRecords, setLangValueRecords] = useState<Record<string,{ id?: number; attributeValueId?: number; name: string }[]>>({})
   const [valueInput, setValueInput] = useState("")
@@ -37,48 +55,104 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
   const [editingContext, setEditingContext] = useState<{ attributeValueId?: number; id?: number; language: string; originalIndex: number } | null>(null)
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set())
   const [searchTerm, setSearchTerm] = useState("")
+  const [searchInput, setSearchInput] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
   const [loading, setLoading] = useState(false)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
-  // Yükləmə
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput.trim())
+      setCurrentPage(1) // Reset to first page on search
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  // Yükləmə with pagination and search
   useEffect(()=>{
     if (!open || !attributeId) return
+    
+    // If this is a new attribute, skip loading (no values exist yet)
+    if (isNewAttribute) {
+      setLanguageValues({ az: [], en: [], ru: [] })
+      setLangValueRecords({ az: [], en: [], ru: [] })
+      setTotalPages(1)
+      setTotalCount(0)
+      setLoading(false)
+      return
+    }
+    
     let active = true
     setLoading(true)
-    attributService.getAttributValues({ attributeId })
-      .then(res=>{
+    
+    attributService.getAttributValues({ 
+      attributeId,
+      PageNumber: currentPage,
+      PageSize: itemsPerPage,
+      SearchTerm: searchTerm || undefined
+    })
+      .then((response: AttributeValueResponse)=>{
         if (!active) return
-        setGroups(res)
-        const byLang: Record<string,string[]> = {}
-        const recs: Record<string,{ id?: number; attributeValueId?: number; name: string }[]> = {}
-        res.forEach(g =>
-          (g.languages||[]).forEach(l=>{
-            const lg = l.language.toLowerCase()
-            byLang[lg] = byLang[lg] || []
-            recs[lg] = recs[lg] || []
-            byLang[lg].push(l.name)
-            recs[lg].push({ id: l.id, attributeValueId: l.attributeValueId, name: l.name })
+        const items = response.responseValue.page.items
+        const pageInfo = response.responseValue.page
+        
+        // Update pagination info
+        setTotalPages(pageInfo.totalPages || 1)
+        setTotalCount(pageInfo.totalCount || 0)
+        
+        // Group by attributeValueId to ensure all languages of same value are together
+        const byLang: Record<string,string[]> = { az: [], en: [], ru: [] }
+        const recs: Record<string,{ id?: number; attributeValueId?: number; name: string }[]> = { az: [], en: [], ru: [] }
+        
+        items.forEach(item => {
+          // For each item (attributeValue), add all its language sets
+          item.sets.forEach(set => {
+            const lg = set.language.toLowerCase()
+            if (!byLang[lg]) byLang[lg] = []
+            if (!recs[lg]) recs[lg] = []
+            
+            byLang[lg].push(set.value)
+            recs[lg].push({ 
+              id: set.id, 
+              attributeValueId: item.id, 
+              name: set.value 
+            })
           })
-        )
+        })
+        
         setLanguageValues(byLang)
         setLangValueRecords(recs)
       })
       .finally(()=>active && setLoading(false))
     return ()=>{ active=false }
-  },[open, attributeId])
+  },[open, attributeId, isNewAttribute, currentPage, searchTerm])
 
   const addValueToLanguage = () => {
     const val = valueInput.trim()
     if (!val) return
-    setLanguageValues(p=>({...p,[selectedLanguage]:[...(p[selectedLanguage]||[]), val]}))
-    setLangValueRecords(p=>({...p,[selectedLanguage]:[...(p[selectedLanguage]||[]), { name: val }]}))
+    
+    // Add only to the current selected language
+    setLanguageValues(prev => ({
+      ...prev,
+      [selectedLanguage]: [...(prev[selectedLanguage] || []), val]
+    }))
+    
+    // No tempGroupId or attributeValueId for new values - they will be independent
+    setLangValueRecords(prev => ({
+      ...prev,
+      [selectedLanguage]: [...(prev[selectedLanguage] || []), { name: val, attributeValueId: undefined }]
+    }))
+    
     setValueInput("")
   }
 
   const removeValueFromLanguage = (lang:string, idx:number) => {
-    setLanguageValues(p=>({...p,[lang]:(p[lang]||[]).filter((_,i)=>i!==idx)}))
-    setLangValueRecords(p=>({...p,[lang]:(p[lang]||[]).filter((_,i)=>i!==idx)}))
+    // Remove only from the specified language
+    setLanguageValues(p => ({ ...p, [lang]: (p[lang] || []).filter((_, i) => i !== idx) }))
+    setLangValueRecords(p => ({ ...p, [lang]: (p[lang] || []).filter((_, i) => i !== idx) }))
   }
 
   const handleStartEditValue = (lang:string, index:number) => {
@@ -98,21 +172,16 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
   const cancelEditValue = () => {
     if (editingContext) {
       const { attributeValueId, id, language, originalIndex } = editingContext
-      const unique = attributeValueId ?? id
-      let restoreName = valueInput
-      LANGS.forEach(l=>{
-        if (l===language) return
-        const other = (langValueRecords[l]||[]).find(r =>
-          (r.attributeValueId ?? r.id) === unique
-        )
-        if (other) restoreName = other.name
-      })
-      setLangValueRecords(prev=>{
-        const next = {...prev}
-        const arr = [...(next[language]||[])]
+      const restoreName = valueInput
+      
+      // Restore only in the current language
+      setLangValueRecords(prev => {
+        const next = { ...prev }
+        const arr = [...(next[language] || [])]
         arr.splice(Math.min(originalIndex, arr.length), 0, { attributeValueId, id, name: restoreName })
         next[language] = arr
-        setLanguageValues(vals=>({...vals,[language]:arr.map(r=>r.name)}))
+        
+        setLanguageValues(vals => ({ ...vals, [language]: arr.map(r => r.name) }))
         return next
       })
     }
@@ -129,14 +198,22 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
       return
     }
     const { language, originalIndex, attributeValueId, id } = editingContext
-    setLangValueRecords(prev=>{
-      const next={...prev}
-      const arr=[...(next[language]||[])]
-      arr.splice(Math.min(originalIndex, arr.length),0,{ attributeValueId, id, name: val })
-      next[language]=arr
-      setLanguageValues(vals=>({...vals,[language]:arr.map(r=>r.name)}))
+    
+    // Update value only in current language
+    setLangValueRecords(prev => {
+      const next = { ...prev }
+      const arr = [...(next[language] || [])]
+      arr.splice(Math.min(originalIndex, arr.length), 0, { 
+        attributeValueId, 
+        id, 
+        name: val
+      })
+      next[language] = arr
+      
+      setLanguageValues(vals => ({ ...vals, [language]: arr.map(r => r.name) }))
       return next
     })
+    
     setEditingValueId(null)
     setEditingContext(null)
     setValueInput("")
@@ -145,59 +222,173 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
   const handleDeleteValue = async (lang:string, index:number) => {
     const rec = (langValueRecords[lang]||[])[index]
     if (!rec) return
-    // DƏYİŞİKLİK: Artıq yalnız rec.id göndəririk
+    
     const deleteKey = rec.id
+    
     if (!deleteKey) { 
-      removeValueFromLanguage(lang,index) 
+      // If no ID (new local value), just remove from current language
+      removeValueFromLanguage(lang, index)
       return 
     }
+    
     if (deletingIds.has(deleteKey)) return
-    setDeletingIds(p=>new Set(p).add(deleteKey))
+    setDeletingIds(p => new Set(p).add(deleteKey))
+    
     try {
-      await attributService.deleteAttributValue(deleteKey) // yalnız id
-      // Lokal state-dən həmin id-li bütün dilləri çıxarırıq
-      setLangValueRecords(prev=>{
-        const next: typeof prev = {}
-        Object.keys(prev).forEach(l=>{
-          next[l] = prev[l].filter(r => r.id !== deleteKey)
-        })
-        const nv: Record<string,string[]> = {}
-        Object.keys(next).forEach(l => nv[l]=next[l].map(r=>r.name))
-        setLanguageValues(nv)
-        return next
-      })
+      await attributService.deleteAttributValue(deleteKey)
+      
+      // Remove only from current language
+      removeValueFromLanguage(lang, index)
+      
       if (editingValueId === deleteKey) cancelEditValue()
     } finally {
-      setDeletingIds(p=>{ const n=new Set(p); n.delete(deleteKey); return n })
+      setDeletingIds(p => { const n = new Set(p); n.delete(deleteKey); return n })
     }
   }
 
-  const filteredValues = (languageValues[selectedLanguage]||[])
-    .filter(v=>v.toLowerCase().includes(searchTerm.toLowerCase()))
-  const totalPages = Math.max(1, Math.ceil(filteredValues.length / itemsPerPage))
-  const startIdx = (currentPage-1)*itemsPerPage
-  const paginatedValues = filteredValues.slice(startIdx, startIdx+itemsPerPage)
+  // Display values from current language (no local filtering - handled by API)
+  const currentValues = languageValues[selectedLanguage] || []
 
   // YENİ UPDATE: bütün dilləri bir payload-da göndəririk
   const persistChanges = async () => {
     if (!attributeId) { onClose(); return }
-    // Only send { value, language } as required by new API
-    const allLangItems = LANGS.flatMap(l =>
-      (langValueRecords[l] || []).map(r => ({
-        value: r.name,   // name -> value
-        language: l
-      }))
-    )
-    if (allLangItems.length) {
+    
+    // Validate: Check if all languages have equal number of NEW values
+    const newValueCounts = {
+      az: (langValueRecords.az || []).filter(r => r.attributeValueId === undefined).length,
+      en: (langValueRecords.en || []).filter(r => r.attributeValueId === undefined).length,
+      ru: (langValueRecords.ru || []).filter(r => r.attributeValueId === undefined).length
+    }
+    
+    if (newValueCounts.az !== newValueCounts.en || newValueCounts.en !== newValueCounts.ru) {
+      toast.error(`Xəta: Bütün dillərdə eyni sayda yeni dəyər olmalıdır!\nAZ: ${newValueCounts.az}, EN: ${newValueCounts.en}, RU: ${newValueCounts.ru}`, {
+        duration: 5000
+      })
+      return
+    }
+    
+    if (isNewAttribute) {
+      // CREATE MODE - Group by index position across all three languages
+      // Structure: { attributeId, attributeValueDtos: [{ value: [{ value, language }, ...] }, ...] }
+      
+      const newValuesAz = (langValueRecords.az || []).filter(r => r.attributeValueId === undefined)
+      const newValuesEn = (langValueRecords.en || []).filter(r => r.attributeValueId === undefined)
+      const newValuesRu = (langValueRecords.ru || []).filter(r => r.attributeValueId === undefined)
+      
+      const maxNewValues = Math.max(newValuesAz.length, newValuesEn.length, newValuesRu.length)
+      
+      const attributeValueDtos: { value: { value: string; language: string }[] }[] = []
+      
+      for (let i = 0; i < maxNewValues; i++) {
+        const valueSet: { value: string; language: string }[] = []
+        
+        if (newValuesAz[i]) {
+          valueSet.push({ value: newValuesAz[i].name, language: 'az' })
+        }
+        if (newValuesEn[i]) {
+          valueSet.push({ value: newValuesEn[i].name, language: 'en' })
+        }
+        if (newValuesRu[i]) {
+          valueSet.push({ value: newValuesRu[i].name, language: 'ru' })
+        }
+        
+        if (valueSet.length > 0) {
+          attributeValueDtos.push({ value: valueSet })
+        }
+      }
+      
+      try {
+        await attributService.createAttributeValueBulk({
+          attributeId: attributeId,
+          attributeValueDtos: attributeValueDtos
+        } as any)
+      } catch (e) {
+        console.error('Error creating attribute values:', e)
+      }
+    } else {
+      // UPDATE MODE - Group by attributeValueId for existing values
+      // New values are grouped by index position across all three languages
+      // Structure: { attributeId, attributeValue: [{ id?, attributeValueSets: [...] }, ...] }
+      
+      const valueGroups = new Map<string, { id?: number; sets: { value: string; language: string }[] }>()
+      
+      // First pass: Group existing values by attributeValueId
+      LANGS.forEach(lang => {
+        (langValueRecords[lang] || []).forEach(record => {
+          if (record.attributeValueId !== undefined) {
+            // Existing value - group by attributeValueId
+            const key = `existing_${record.attributeValueId}`
+            
+            if (!valueGroups.has(key)) {
+              valueGroups.set(key, {
+                id: record.attributeValueId,
+                sets: []
+              })
+            }
+            
+            valueGroups.get(key)!.sets.push({
+              value: record.name,
+              language: lang
+            })
+          }
+        })
+      })
+      
+      // Second pass: Group new values by their index position
+      // All new values at same index across languages belong together
+      const newValuesAz = (langValueRecords.az || []).filter(r => r.attributeValueId === undefined)
+      const newValuesEn = (langValueRecords.en || []).filter(r => r.attributeValueId === undefined)
+      const newValuesRu = (langValueRecords.ru || []).filter(r => r.attributeValueId === undefined)
+      
+      const maxNewValues = Math.max(newValuesAz.length, newValuesEn.length, newValuesRu.length)
+      
+      for (let i = 0; i < maxNewValues; i++) {
+        const key = `new_index_${i}`
+        const sets: { value: string; language: string }[] = []
+        
+        if (newValuesAz[i]) {
+          sets.push({ value: newValuesAz[i].name, language: 'az' })
+        }
+        if (newValuesEn[i]) {
+          sets.push({ value: newValuesEn[i].name, language: 'en' })
+        }
+        if (newValuesRu[i]) {
+          sets.push({ value: newValuesRu[i].name, language: 'ru' })
+        }
+        
+        if (sets.length > 0) {
+          valueGroups.set(key, {
+            id: undefined,
+            sets: sets
+          })
+        }
+      }
+      
+      // Build the payload array
+      const attributeValues = Array.from(valueGroups.values()).map(group => {
+        const result: any = {
+          attributeValueSets: group.sets
+        }
+        
+        // Include id only if it exists (for updates)
+        // If id is undefined, it's a new value (will be created)
+        if (group.id !== undefined) {
+          result.id = group.id
+        }
+        
+        return result
+      })
+      
       try {
         await attributService.editAttributValue({
-          attributeId,
-          languages: allLangItems
-        })
+          attributeId: attributeId,
+          attributeValue: attributeValues
+        } as any)
       } catch (e) {
-        console.error(e)
+        console.error('Error updating attribute values:', e)
       }
     }
+    
     onClose(true)
   }
 
@@ -206,20 +397,67 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
       <DialogContent className="overflow-y-auto" style={{ minWidth:"460px", maxWidth:"48vw", height:"82vh" }}>
         <DialogHeader>
           <DialogTitle>
-            {loading ? "Loading..." : `Values`}
+            {loading ? "Loading..." : isNewAttribute ? "Create Attribute Values" : "Edit Attribute Values"}
           </DialogTitle>
         </DialogHeader>
 
         {!attributeId && <div className="text-sm text-muted-foreground">AttributeId yoxdur.</div>}
         {attributeId && (
           <div className="space-y-6">
-            <Tabs value={selectedLanguage} onValueChange={v=>{ setSelectedLanguage(v as Lang); setCurrentPage(1) }}>
+            <Tabs value={selectedLanguage} onValueChange={v=>{ 
+              setSelectedLanguage(v as Lang)
+              // Don't reset page on language change - each language shows same page of data
+            }}>
               <TabsList>
-                <TabsTrigger value="az">AZ</TabsTrigger>
-                <TabsTrigger value="en">EN</TabsTrigger>
-                <TabsTrigger value="ru">RU</TabsTrigger>
+                <TabsTrigger value="az">
+                  AZ 
+                  {/* <span className="ml-1 text-xs text-gray-500">
+                    ({(langValueRecords.az || []).filter(r => r.attributeValueId === undefined).length} yeni)
+                  </span> */}
+                </TabsTrigger>
+                <TabsTrigger value="en">
+                  EN
+                  {/* <span className="ml-1 text-xs text-gray-500">
+                    ({(langValueRecords.en || []).filter(r => r.attributeValueId === undefined).length} yeni)
+                  </span> */}
+                </TabsTrigger>
+                <TabsTrigger value="ru">
+                  RU
+                  {/* <span className="ml-1 text-xs text-gray-500">
+                    ({(langValueRecords.ru || []).filter(r => r.attributeValueId === undefined).length} yeni)
+                  </span> */}
+                </TabsTrigger>
               </TabsList>
             </Tabs>
+
+            {/* Warning banner when new value counts don't match */}
+            {(() => {
+              const newCounts = {
+                az: (langValueRecords.az || []).filter(r => r.attributeValueId === undefined).length,
+                en: (langValueRecords.en || []).filter(r => r.attributeValueId === undefined).length,
+                ru: (langValueRecords.ru || []).filter(r => r.attributeValueId === undefined).length
+              }
+              const countsMatch = newCounts.az === newCounts.en && newCounts.en === newCounts.ru
+              
+              if (!countsMatch) {
+                return (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                    <div className="flex items-start gap-2">
+                      <span className="text-red-600 font-semibold">⚠️</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-red-800">
+                          Diqqət: Bütün dillərdə eyni sayda yeni dəyər olmalıdır!
+                        </p>
+                        <p className="text-xs text-red-600 mt-1">
+                          AZ: {newCounts.az} yeni, EN: {newCounts.en} yeni, RU: {newCounts.ru} yeni
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })()}
 
             <div className="flex gap-4">
               <div className="flex flex-col flex-1">
@@ -259,14 +497,20 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
             <div>
               <label className="mb-2 text-sm font-medium">Search</label>
               <Input
-                value={searchTerm}
+                value={searchInput}
                 placeholder="Search values..."
-                onChange={e=>{ setSearchTerm(e.target.value); setCurrentPage(1) }}
+                onChange={e=> setSearchInput(e.target.value)}
               />
+             
             </div>
 
             <div className="space-y-2">
-              {paginatedValues.map(v => {
+              {loading ? (
+                <div className="text-center py-4 text-sm text-gray-500">Yüklənir...</div>
+              ) : currentValues.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No values</div>
+              ) : (
+                currentValues.map((v, idx) => {
                 const originalIndex = (languageValues[selectedLanguage]||[]).indexOf(v)
                 if (originalIndex < 0) return null
                 const rec = (langValueRecords[selectedLanguage]||[])[originalIndex]
@@ -300,9 +544,7 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
                     </div>
                   </div>
                 )
-              })}
-              {paginatedValues.length === 0 && (
-                <div className="text-sm text-muted-foreground">No values</div>
+              })
               )}
             </div>
 
@@ -312,15 +554,17 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={currentPage===1}
+                  disabled={currentPage===1 || loading}
                   onClick={()=>setCurrentPage(p=>Math.max(1,p-1))}
                 ><ChevronLeft /></Button>
-                <span className="text-ml ml-2 mr-2">{/*Page*/} {currentPage} {/*/{totalPages}*/}</span>
+                <span className="text-ml ml-2 mr-2">
+                  Səhifə {currentPage} / {totalPages}
+                </span>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={currentPage===totalPages}
+                  disabled={currentPage===totalPages || loading}
                   onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))}
                 ><ChevronRight /></Button>
               </div>

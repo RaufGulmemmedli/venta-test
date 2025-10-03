@@ -23,7 +23,7 @@ export default function StepsReorderDialog({ open, onOpenChange }: StepsReorderD
     const t = useTranslations("StepReorder")
     const [typeFilter, setTypeFilter] = useState<'cv' | 'vakansiya'>('cv')
 
-    const { data, isLoading } = useAllSteps(typeFilter)
+    const { data, isLoading } = useAllSteps(typeFilter, typeFilter === 'cv' ? 1 : 2)
     const mutation = useEditStepsQueue()
 
     const [items, setItems] = useState<DraggableStep[]>([])

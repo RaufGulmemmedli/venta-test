@@ -106,18 +106,22 @@ export const stepService = {
         const res = await axiosInstance.get<StepsFilterResponse>(url)
         return res.data
     },
-    getAllSteps: async (type?: 'cv' | 'vakansiya' | '1' | '2'): Promise<StepI18n[]> => {
+    getAllSteps: async (type?: 'cv' | 'vakansiya' | '1' | '2', stepType?: number): Promise<StepI18n[]> => {
         const sp = new URLSearchParams()
         if (type) {
             const t = type === 'cv' ? '1' : type === 'vakansiya' ? '2' : String(type)
             sp.set('Type', t)
         }
+        // stepType parametri varsa onu da əlavə et
+        if (stepType !== undefined) {
+            sp.set('Type', String(stepType))
+        }
         // bütün stepləri almaq üçün böyük page size
         sp.set('PageSize', '1000')
         const url = `Steps/get-all-with-pagination?${sp.toString()}`
-        const res = await axiosInstance.get<ApiResponse<{ items: StepI18n[] }>>(url)
+        const res = await axiosInstance.get<any>(url)
         
-        // Handle new API response format
+        // Handle API response format - responseValue.items structure
         if (res.data?.responseValue?.items) {
             return res.data.responseValue.items.map((item: any) => ({
                 id: item.id,
@@ -133,7 +137,7 @@ export const stepService = {
             }))
         }
         
-        // Fallback for old format
+        // Fallback for alternative format
         const arr = Array.isArray(res.data?.responseValue?.items) ? res.data.responseValue.items : []
         return arr
     },
@@ -168,7 +172,10 @@ export const stepService = {
     },
     editStepsQueue: async (data: StepQueueItem[]): Promise<void> => {
         // Server array sıradakı ardıcıllığa görə sortOrder müəyyən edə bilər
-        await axiosInstance.put('Steps/update-queue', data)
+        const payload = {
+            stepQueues: data
+        }
+        await axiosInstance.put('Steps/update-queue', payload)
     },
     editStepStatus: async (StepId: number, IsActive: boolean): Promise<void> => {
         await axiosInstance.put(`Steps/change-status?StepId=${StepId}`, IsActive)

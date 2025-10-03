@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import Dropdown from "@/components/ui/Dropdown"
 import { useSections } from "@/lib/hooks/useSection"
-import { useAttributs, useDeleteAttribut ,useEditAttributStatus} from "@/lib/hooks/useAttribut"
+import { useAttributs, useDeleteAttribut, useEditAttributStatus } from "@/lib/hooks/useAttribut"
 import AttributeValuesModal from "@/containers/settings/pages/AttributeValuesModal"
 const VALUE_TYPE_MAP: Record<number, string> = {
   1: "String",
@@ -119,7 +119,7 @@ export default function AttributContainer() {
               style={{ backgroundColor: "#f39f40ff", transition: "background-color 0.3s" }}
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e2aa69ff")}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f39f40ff")}
-              title="Sıralama"
+              title={t("reorder")}
               onClick={() => setReorderOpen(true)}
             >
               <Replace className="h-5 w-5" />
@@ -190,50 +190,54 @@ export default function AttributContainer() {
         <div className="border rounded-lg overflow-hidden mb-4">
           <Table className="text-sm w-full">
             <TableHeader>
-             <TableRow className="bg-gray-50 hover:bg-gray-50">
-    <TableHead className="px-3 py-2 text-lg">{t("table.id")}</TableHead>
-    <TableHead className="px-3 py-2 text-lg">{t("table.name")}</TableHead>
-    <TableHead className="px-3 py-2 text-lg">{t("table.sectionName")}</TableHead>
-    <TableHead className="px-3 py-2 text-lg">{t("table.valuable")}</TableHead>
-    <TableHead className="px-3 py-2 text-lg">{t("table.visible")}</TableHead>
-    <TableHead className="px-3 py-2 text-lg">{t("table.important")}</TableHead>
-    <TableHead className="px-3 py-2 text-lg">{t("table.type")}</TableHead>
-    <TableHead className="px-3 py-2 text-lg">{t("table.status")}</TableHead>
-    <TableHead className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur z-10">
-      {t("table.actions")}
-    </TableHead>
-  </TableRow>
+              <TableRow className="bg-gray-50 hover:bg-gray-50">
+                <TableHead className="px-3 py-2 text-lg">{t("table.id")}</TableHead>
+                <TableHead className="px-3 py-2 text-lg">{t("table.name")}</TableHead>
+                <TableHead className="px-3 py-2 text-lg">{t("table.sectionName")}</TableHead>
+                <TableHead className="px-3 py-2 text-lg">{t("table.valuable")}</TableHead>
+                <TableHead className="px-3 py-2 text-lg">{t("table.visible")}</TableHead>
+                <TableHead className="px-3 py-2 text-lg">{t("table.important")}</TableHead>
+                <TableHead className="px-3 py-2 text-lg">{t("table.included")}</TableHead>
+                <TableHead className="px-3 py-2 text-lg">{t("table.type")}</TableHead>
+                <TableHead className="px-3 py-2 text-lg">{t("table.status")}</TableHead>
+                <TableHead className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur z-10">
+                  {t("table.actions")}
+                </TableHead>
+              </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={10} className="px-3 py-6 text-center">Yüklənir...</TableCell>
+                  <TableCell colSpan={10} className="px-3 py-6 text-center">{t("loading")}</TableCell>
                 </TableRow>
               )}
               {isError && (
                 <TableRow>
-                  <TableCell colSpan={10} className="px-3 py-6 text-center text-red-600">Xəta baş verdi</TableCell>
+                  <TableCell colSpan={10} className="px-3 py-6 text-center text-red-600">{t("error") || "Xəta baş verdi"}</TableCell>
                 </TableRow>
               )}
               {!isLoading && !isError && attributs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="px-3 py-6 text-center text-muted-foreground">Məlumat yoxdur</TableCell>
+                  <TableCell colSpan={10} className="px-3 py-6 text-center text-muted-foreground">{t("noData")}</TableCell>
                 </TableRow>
               )}
               {!isLoading && !isError && attributs.map((s: any) => (
                 <TableRow key={s.id}>
                   <TableCell className="px-3 py-4 text-base">{s.id}</TableCell>
                   <TableCell className="px-3 py-4 text-base font-medium">{getAttrName(s)}</TableCell>
-                  <TableCell className="px-3 py-4 text-base">{s.sectionName }</TableCell>
-                 
+                  <TableCell className="px-3 py-4 text-base">{s.sectionName}</TableCell>
+
                   <TableCell className="px-3 py-4">
                     {s.isValuable ? <Check className="w-4 h-4 text-green-600" /> : <X className="w-4 h-4 text-red-500" />}
                   </TableCell>
                   <TableCell className="px-3 py-4">
-                    {s.isVisiable ? <Check className="w-4 h-4 text-green-600" /> : <X className="w-4 h-4 text-red-500" />}
+                    {s.isVisible ? <Check className="w-4 h-4 text-green-600" /> : <X className="w-4 h-4 text-red-500" />}
                   </TableCell>
                   <TableCell className="px-3 py-4">
                     {s.isImportand ? <Check className="w-4 h-4 text-green-600" /> : <X className="w-4 h-4 text-red-500" />}
+                  </TableCell>
+                  <TableCell className="px-3 py-4">
+                    {s.isIncluded ? <Check className="w-4 h-4 text-green-600" /> : <X className="w-4 h-4 text-red-500" />}
                   </TableCell>
                   <TableCell className="px-3 py-4 text-base">
                     {VALUE_TYPE_MAP[Number(s.valueType)] || s.valueType || "-"}
@@ -253,7 +257,7 @@ export default function AttributContainer() {
                         <File
                           style={{ width: "20px", height: "20px", cursor: "pointer" }}
                           onClick={() => openValues(s.id)}
-                         
+
                         />
                       )}
                       <Edit
@@ -274,7 +278,7 @@ export default function AttributContainer() {
 
         <div className="flex items-center justify-between gap-4 mt-2">
           <div className="flex items-center gap-2 text-sm">
-            <span>Səhifə ölçüsü:</span>
+            <span>{t("pageSize") || "Səhifə ölçüsü:"}</span>
             <select
               className="border rounded px-2 py-1 text-sm"
               value={pageSize}
@@ -314,9 +318,9 @@ export default function AttributContainer() {
             <CreateAttributModal
               id={editId ?? undefined}
               onClose={() => { setOpen(false) }}
-              onOpenValues={(attrId:number)=>{
+              onOpenValues={(attrId: number, isNewAttribute: boolean) => {
                 // Create modal-dan Next
-                setValuesFromCreate(true)
+                setValuesFromCreate(isNewAttribute)
                 setOpen(false)
                 setEditId(attrId)
                 setCurrentAttributeId(attrId)
@@ -349,7 +353,8 @@ export default function AttributContainer() {
         <AttributeValuesModal
           open={valuesOpen}
           attributeId={currentAttributeId}
-          onClose={(updated)=>{
+          isNewAttribute={valuesFromCreate}
+          onClose={(updated) => {
             setValuesOpen(false)
             if (updated) {
               // burada refetch çağırın (məs: queryClient.invalidateQueries([...]))

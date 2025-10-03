@@ -2,26 +2,323 @@
 
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, Search, Edit, Trash, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
-import FinSearch from "./comopenents/FinSearch"
+import React, { useState, useEffect } from "react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useVacancyList, useDeleteVacancy } from "@/lib/hooks/useVacancy"
+import AlertDialogComponent from "@/components/AlertDiolog/AlertDiolog"
+import VacancyFilterSidebar from "./components/VacancyFilterSidebar"
+import { Filter } from "lucide-react"
 
 export default function VacancyPageContainer() {
-    const t = useTranslations("vacancyPage")
+    const t = useTranslations("vacancy")
     const router = useRouter()
+    
+    const [pageNumber, setPageNumber] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
+    const [searchInput, setSearchInput] = useState("")
+    const [search, setSearch] = useState("")
+    const [statusFilter, setStatusFilter] = useState<'all' | 'true' | 'false'>('all')
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [vacancyToDelete, setVacancyToDelete] = useState<number | null>(null)
+    const [filterSidebarOpen, setFilterSidebarOpen] = useState(false)
+    const [attributeFilters, setAttributeFilters] = useState<{ id: number; attributeValueIds: number[] }[]>([])
+
+    React.useEffect(() => {
+        const h = setTimeout(() => setSearch(searchInput.trim()), 500)
+        return () => clearTimeout(h)
+    }, [searchInput])
+
+    const queryParams = {
+        pageNumber,
+        pageSize,
+        search: search || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter === 'true',
+        attributeDtos: attributeFilters.length > 0 ? attributeFilters : undefined,
+    }
+
+    const { data: vacancyData, isLoading, isError } = useVacancyList(queryParams)
+    const deleteVacancy = useDeleteVacancy()
+
+    const { data: nextPageVacancyData = { items: [] } } = useVacancyList(
+        { ...queryParams, pageNumber: pageNumber + 1 }
+    )
+
+    const canGoNext = vacancyData?.items.length === pageSize && nextPageVacancyData.items.length > 0
+
+    useEffect(() => {
+        if (!isLoading && !isError && vacancyData?.items.length === 0 && pageNumber > 1) {
+            setPageNumber(p => Math.max(1, p - 1))
+        }
+    }, [vacancyData?.items, isLoading, isError, pageNumber])
+
+    // Get all unique attribute names from all vacancies
+    const getAllAttributeNames = (vacancyData: any) => {
+        if (!vacancyData?.items) return []
+        
+        const attributeNames = new Set<string>()
+        
+        vacancyData.items.forEach((vacancy: any) => {
+            vacancy.steps?.forEach((step: any) => {
+                step.sections?.forEach((section: any) => {
+                    section.attributes?.forEach((attr: any) => {
+                        if (attr.name) {
+                            attributeNames.add(attr.name)
+                        }
+                    })
+                })
+            })
+        })
+        
+        return Array.from(attributeNames).sort()
+    }
+
+    // Get attribute value for a specific vacancy
+    const getAttributeValue = (vacancy: any, attributeName: string) => {
+        try {
+            for (const step of vacancy.steps || []) {
+                for (const section of step.sections || []) {
+                    for (const attr of section.attributes || []) {
+                        if (attr.name === attributeName && attr.values && attr.values.length > 0) {
+                            const value = attr.values[0]
+                            
+                            // Handle different API response structures
+                            if (value?.set) {
+                                const set = value.set
+                                if (set.stringValue !== null && set.stringValue !== undefined) return set.stringValue
+                                if (set.decimalValue !== null && set.decimalValue !== undefined) return set.decimalValue.toString()
+                                if (set.dateTimeValue !== null && set.dateTimeValue !== undefined) return new Date(set.dateTimeValue).toLocaleDateString()
+                                if (set.boolValue !== null && set.boolValue !== undefined) return set.boolValue ? 'Bəli' : 'Xeyr'
+                            } else if (value?.sets && value.sets.length > 0) {
+                                // Handle alternative structure with sets array
+                                const set = value.sets[0]
+                                if (set.stringValue !== null && set.stringValue !== undefined) return set.stringValue
+                                if (set.decimalValue !== null && set.decimalValue !== undefined) return set.decimalValue.toString()
+                                if (set.dateTimeValue !== null && set.dateTimeValue !== undefined) return new Date(set.dateTimeValue).toLocaleDateString()
+                                if (set.boolValue !== null && set.boolValue !== undefined) return set.boolValue ? 'Bəli' : 'Xeyr'
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error getting attribute value:', error, { vacancy, attributeName })
+        }
+        return '-'
+    }
+
+    const getStepTitles = (steps: any[]) => {
+        if (!steps || steps.length === 0) return "No steps"
+        return steps.map(step => step.title || `Step ${step.id}`).join(", ")
+    }
+
+    const getSectionCount = (steps: any[]) => {
+        if (!steps || steps.length === 0) return 0
+        return steps.reduce((total, step) => total + (step.sections?.length || 0), 0)
+    }
+
+    const handleDeleteVacancy = (vacancyId: number) => {
+        setVacancyToDelete(vacancyId)
+        setDeleteDialogOpen(true)
+    }
+
+    const confirmDelete = async () => {
+        if (vacancyToDelete) {
+            try {
+                await deleteVacancy.mutateAsync(vacancyToDelete)
+                setDeleteDialogOpen(false)
+                setVacancyToDelete(null)
+            } catch (error) {
+                console.error('Delete failed:', error)
+            }
+        }
+    }
+
+    const cancelDelete = () => {
+        setDeleteDialogOpen(false)
+        setVacancyToDelete(null)
+    }
+
+    const handleApplyFilter = (filters: { id: number; attributeValueIds: number[] }[]) => {
+        setAttributeFilters(filters)
+        setPageNumber(1)
+    }
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
-                    <p className="text-muted-foreground">Manage your customer database and user accounts.</p>
+                    <p className="text-muted-foreground">{t("manage")}</p>
                 </div>
-                <Button onClick={() => router.push("/cv-create")}>
-                    <Plus className="mr-2 h-4 w-4" /> Yarat
+                <Button onClick={() => router.push("/vacancy-create")}>
+                    <Plus className="mr-2 h-4 w-4" /> {t("create")}
                 </Button>
             </div>
-            <FinSearch />
+
+            {/* Search and Filters */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="relative w-full sm:w-1/2 lg:w-1/3">
+                    <Input
+                        value={searchInput}
+                        onChange={(e) => { setSearchInput(e.target.value); setPageNumber(1) }}
+                        placeholder={t("search")}
+                        className="bg-white dark:bg-background pl-3 h-10"
+                    />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex gap-2 w-56" style={{height: "40px"}}>
+                    <select
+                        className="w-full border rounded px-2 py-1 text-sm"
+                        value={statusFilter}
+                        onChange={(e) => { setStatusFilter(e.target.value as any); setPageNumber(1) }}
+                    >
+                        <option value="all">{t("all")}</option>
+                        <option value="true">{t("active")}</option>
+                        <option value="false">{t("passive")}</option>
+                    </select>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button onClick={() => setFilterSidebarOpen(true)}>
+                        <Filter className="mr-2 h-4 w-4" />
+                        {t("filter")}
+                    </Button>
+                    {attributeFilters.length > 0 && (
+                        <span className="text-sm text-muted-foreground">
+                            ({attributeFilters.reduce((sum, f) => sum + f.attributeValueIds.length, 0)} {t("filters")})
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            {/* Vacancy Table */}
+            <div className="border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                    <Table className="text-sm w-full min-w-max">
+                        <TableHeader>
+                            <TableRow className="bg-gray-50 hover:bg-gray-50">
+                                <TableHead className="px-3 py-2 text-lg sticky left-0 bg-gray-50 z-10">ID</TableHead>
+                                {getAllAttributeNames(vacancyData).map((attrName) => (
+                                    <TableHead key={attrName} className="px-3 py-2 text-lg whitespace-nowrap">
+                                        {attrName}
+                                    </TableHead>
+                                ))}
+                                <TableHead className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur z-10">
+                                    Actions
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading && (
+                                <TableRow>
+                                    <TableCell colSpan={getAllAttributeNames(vacancyData).length + 2} className="px-3 py-6 text-center">{t("loading")}</TableCell>
+                                </TableRow>
+                            )}
+                            {isError && (
+                                <TableRow>
+                                    <TableCell colSpan={getAllAttributeNames(vacancyData).length + 2} className="px-3 py-6 text-center text-red-600">{t("error")}</TableCell>
+                                </TableRow>
+                            )}
+                            {!isLoading && !isError && vacancyData?.items.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={getAllAttributeNames(vacancyData).length + 2} className="px-3 py-6 text-center text-muted-foreground">{t("notFound")}</TableCell>
+                                </TableRow>
+                            )}
+                            {!isLoading && !isError && vacancyData?.items.map((vacancy: any) => (
+                                <TableRow key={vacancy.vacancyId}>
+                                    <TableCell className="px-3 py-4 text-base sticky left-0 bg-white z-10">{vacancy.vacancyId}</TableCell>
+                                    {getAllAttributeNames(vacancyData).map((attrName) => (
+                                        <TableCell key={attrName} className="px-3 py-4 text-base whitespace-nowrap">
+                                            {getAttributeValue(vacancy, attrName)}
+                                        </TableCell>
+                                    ))}
+                                    <TableCell className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur">
+                                        <div className="inline-flex gap-2">
+                                            <Eye
+                                                className="w-5 h-5 cursor-pointer text-blue-600"
+                                                onClick={() => {
+                                                    router.push(`/vacancy/view?id=${vacancy.vacancyId}`)
+                                                }}
+                                            />
+                                            <Edit
+                                                className="w-5 h-5 cursor-pointer text-green-600"
+                                                onClick={() => {
+                                                    router.push(`/vacancy-create?editId=${vacancy.vacancyId}`)
+                                                }}
+                                            />
+                                            <Trash
+                                                className={`w-5 h-5 cursor-pointer text-red-600 hover:text-red-800 transition-colors ${
+                                                    deleteVacancy.isPending ? 'opacity-50 cursor-not-allowed' : ''
+                                                }`}
+                                                onClick={() => !deleteVacancy.isPending && handleDeleteVacancy(vacancy.vacancyId)}
+                                            />
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between gap-4 mt-2">
+                <div className="flex items-center gap-2 text-sm">
+                    <span>{t("pageSize")}</span>
+                    <select
+                        className="border rounded px-2 py-1 text-sm"
+                        value={pageSize}
+                        onChange={(e) => { setPageSize(Number(e.target.value)); setPageNumber(1) }}
+                    >
+                        {[5, 10, 20, 50].map((sz) => (
+                            <option key={sz} value={sz}>{sz}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pageNumber === 1 || isLoading}
+                        onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                    >
+                        <ChevronLeft />
+                    </Button>
+                    <span
+                        className="text-sm"
+                        style={{ width: "30px", alignItems: "center", display: "flex", justifyContent: "center" }}
+                    >{pageNumber}</span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isLoading || !canGoNext}
+                        onClick={() => setPageNumber(p => p + 1)}
+                    >
+                        <ChevronRight />
+                    </Button>
+                </div>
+            </div>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialogComponent
+                open={deleteDialogOpen}
+                setOpen={setDeleteDialogOpen}
+                title={t("deleteVacancy")}
+                description={t("deleteVacancyDescription")}
+                onConfirm={confirmDelete}
+                onCancel={cancelDelete}
+            />
+
+            {/* Filter Sidebar */}
+            <VacancyFilterSidebar
+                open={filterSidebarOpen}
+                onClose={() => setFilterSidebarOpen(false)}
+                onApplyFilter={handleApplyFilter}
+            />
+
         </div>
     )
 }

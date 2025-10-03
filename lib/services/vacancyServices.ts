@@ -1,8 +1,6 @@
 import { axiosInstance } from "@/lib/axios";
-import { create } from "domain";
-import { get } from "http";
 
-export interface CvApiAttributeValue {
+export interface VacancyApiAttributeValue {
     attributeValueId: number;
     display: string;
     set: {
@@ -14,12 +12,12 @@ export interface CvApiAttributeValue {
     };
 }
 
-export interface CvAttributeValue {
+export interface VacancyAttributeValue {
     attributeValueId: number;
     languages: { id: number; name: string; language: string; value: string }[];
 }
 
-export interface CvAttribute {
+export interface VacancyAttribute {
     attributeId: number;
     valueType: number;
     isValuable: boolean;
@@ -27,13 +25,13 @@ export interface CvAttribute {
     isVisible: boolean;
     isImportant: boolean;
     isActive: boolean;
-    isIncluded: boolean;
     order: number;
     name: string;
-    attributeSets?: { name: string }[];
-    values: CvAttributeValue[];
+    attributeSets: { name: string }[];
+    values: VacancyAttributeValue[];
 }
-export interface CreateCvRequest {
+
+export interface CreateVacancyRequest {
     sectionDtos: {
         sectionId: number;
         attributes: {
@@ -46,17 +44,18 @@ export interface CreateCvRequest {
         }[];
     }[];
 }
-export interface CvApiSection {
+
+export interface VacancyApiSection {
     id: number;
     isActive: boolean;
     sortOrder: number;
     isChangeable: boolean;
     title: string;
     description: string | null;
-    attributes: CvApiAttribute[];
+    attributes: VacancyApiAttribute[];
 }
 
-export interface CvApiAttribute {
+export interface VacancyApiAttribute {
     attributeId: number;
     valueType: number;
     isValuable: boolean;
@@ -64,34 +63,33 @@ export interface CvApiAttribute {
     isVisible: boolean;
     isImportant: boolean;
     isActive: boolean;
-    isIncluded: boolean;
     order: number;
     name: string;
-    values: CvApiAttributeValue[];
+    values: VacancyApiAttributeValue[];
 }
 
-export interface CvTransformedSection {
+export interface VacancyTransformedSection {
     sectionId: number;
     title: string;
     isActive: boolean;
     sortOrder: number;
     isChangeable: boolean;
-    attributes: CvAttribute[];
+    attributes: VacancyAttribute[];
 }
 
-export interface CvStepData {
+export interface VacancyStepData {
     stepId: number;
     stepName: string;
-    sections: CvTransformedSection[];
+    sections: VacancyTransformedSection[];
 }
 
-export interface CvApiResponse {
-    responseValue: CvApiSection[];
+export interface VacancyApiResponse {
+    responseValue: VacancyApiSection[];
     statusCode: number;
     message: string;
 }
 
-export interface CvParams {
+export interface VacancyParams {
     pageNumber?: number
     pageSize?: number
     search?: string
@@ -102,17 +100,17 @@ export interface CvParams {
     }[]
 }
 
-export interface CvStep {
+export interface VacancyStep {
     id: number
     type: number
     sortOrder: number
     isActive: boolean
     title: string
     description: string | null
-    sections: CvSection[]
+    sections: VacancySection[]
 }
 
-export interface CvAttributeValueSet {
+export interface VacancyAttributeValueSet {
     language: string
     stringValue: string | null
     decimalValue: number | null
@@ -120,13 +118,13 @@ export interface CvAttributeValueSet {
     boolValue: boolean | null
 }
 
-export interface CvAttributeValue {
+export interface VacancyAttributeValue {
     attributeValueId: number
     display: string
-    sets: CvAttributeValueSet[]
+    sets: VacancyAttributeValueSet[]
 }
 
-export interface CvAttribute {
+export interface VacancyAttribute {
     attributeId: number
     valueType: number
     isValuable: boolean
@@ -134,30 +132,28 @@ export interface CvAttribute {
     isVisible: boolean
     isImportant: boolean
     isActive: boolean
-    isIncluded: boolean
     order: number
     name: string
-    attributeSets?: { name: string }[]
-    values: CvAttributeValue[]
+    values: VacancyAttributeValue[]
 }
 
-export interface CvSection {
+export interface VacancySection {
     id: number
     isActive: boolean
     sortOrder: number
     isChangeable: boolean
     title: string
     description: string | null
-    attributes: CvAttribute[]
+    attributes: VacancyAttribute[]
 }
 
-export interface CvItem {
-    resumeId: number
-    steps: CvStep[]
+export interface VacancyItem {
+    vacancyId: number
+    steps: VacancyStep[]
 }
 
-export interface CvListPage {
-    items: CvItem[]
+export interface VacancyListPage {
+    items: VacancyItem[]
     pageNumber: number
     totalPages: number
     pageSize: number
@@ -166,9 +162,9 @@ export interface CvListPage {
     hasNextPage: boolean
 }
 
-export const cvService = {
-    getCvData: async (stepId: number): Promise<CvStepData> => {
-        const response = await axiosInstance.get<CvApiResponse>(`Sections/get-by-step-id?StepId=${stepId}`);
+export const vacancyService = {
+    getVacancyData: async (stepId: number): Promise<VacancyStepData> => {
+        const response = await axiosInstance.get<VacancyApiResponse>(`Sections/get-by-step-id?StepId=${stepId}`);
         
         // Transform the new API response format to the expected format
         const sections = response.data.responseValue.map(section => ({
@@ -182,7 +178,6 @@ export const cvService = {
                 valueType: attr.valueType,
                 isValuable: attr.isValuable,
                 isPrinted: attr.isPrinted,
-                isIncluded: attr.isIncluded,
                 isVisible: attr.isVisible,
                 isImportant: attr.isImportant,
                 isActive: attr.isActive,
@@ -191,11 +186,19 @@ export const cvService = {
                 attributeSets: [{ name: attr.name }], // Transform name to attributeSets format
                 values: attr.values.map(value => ({
                     attributeValueId: value.attributeValueId,
+                    display: value.display,
                     languages: [{
                         id: value.attributeValueId,
                         name: value.display,
                         language: value.set.language,
                         value: value.display
+                    }],
+                    sets: [{
+                        language: value.set.language,
+                        stringValue: value.set.stringValue,
+                        decimalValue: value.set.decimalValue,
+                        dateTimeValue: value.set.dateTimeValue,
+                        boolValue: value.set.boolValue
                     }]
                 }))
             }))
@@ -204,21 +207,23 @@ export const cvService = {
         return {
             stepId: stepId,
             stepName: `Step ${stepId}`,
-            sections: sections as CvTransformedSection[]
+            sections: sections as VacancyTransformedSection[]
         };
     },
-    createCvData: async (data: CreateCvRequest): Promise<any> => {
-        const response = await axiosInstance.post<any>('Resumes/create', data);
+    createVacancyData: async (data: CreateVacancyRequest): Promise<any> => {
+        const response = await axiosInstance.post<any>('Vacancies/create', data);
         return response.data;
     },
-    getAllCv: async (params: CvParams = {}): Promise<CvListPage> => {
+    getAllVacancies: async (params: VacancyParams = {}): Promise<VacancyListPage> => {
         const searchParams = new URLSearchParams()
         searchParams.set('PageNumber', String(params.pageNumber ?? 1))
         searchParams.set('PageSize', String(params.pageSize ?? 10))
-        
+       
+        // Handle comma-separated search terms
         if (params.search) {
             const searchTerms = params.search.split(',').map(term => term.trim()).filter(term => term.length > 0)
             if (searchTerms.length > 0) {
+                // Join multiple search terms with comma for API
                 searchParams.set('SearchTerm', searchTerms.join(','))
             }
         } else {
@@ -227,6 +232,7 @@ export const cvService = {
         
         if (typeof params.isActive === 'boolean') searchParams.set('IsActive', String(params.isActive))
 
+        // Handle AttributeDtos parameter
         if (params.attributeDtos && params.attributeDtos.length > 0) {
             params.attributeDtos.forEach((attrDto, index) => {
                 searchParams.set(`AttributeDtos[${index}].id`, String(attrDto.id))
@@ -236,13 +242,14 @@ export const cvService = {
             })
         }
 
-        const url = `Resumes/get-all-with-pagination?${searchParams.toString()}`
+        const url = `Vacancies/get-all-with-pagination?${searchParams.toString()}`
         const res = await axiosInstance.get<any>(url)
         const rv = res.data?.responseValue
 
-        const items: CvItem[] = Array.isArray(rv?.items)
+        // Handle the new API response format - keep the raw structure as it comes from API
+        const items: VacancyItem[] = Array.isArray(rv?.items)
             ? rv.items.map((item: any) => ({
-                resumeId: item.resumeId,
+                vacancyId: item.vacancyId,
                 steps: item.steps || []
               }))
             : []
@@ -257,21 +264,20 @@ export const cvService = {
             hasNextPage: rv?.hasNextPage ?? false,
         }
     },
-    getCvById: async (id: number, stepId?: number): Promise<CvItem | null> => {
-        let url = `Resumes/get-by-id?ResumeId=${id}`;
+    getVacancyById: async (id: number, stepId?: number): Promise<VacancyItem | null> => {
+        let url = `Vacancies/get-by-id?VacancyId=${id}`;
         if (stepId) {
             url += `&StepId=${stepId}`;
         }
-        
         
         const res = await axiosInstance.get<any>(url)
         const rv = res.data?.responseValue
 
         if (!rv) return null
 
-       
-        const item: CvItem = {
-            resumeId: rv.resumeId,
+        // Transform the response to VacancyItem format
+        const item: VacancyItem = {
+            vacancyId: rv.vacancyId,
             steps: (rv.steps || []).map((step: any) => ({
                 id: step.id,
                 type: step.type,
@@ -291,23 +297,22 @@ export const cvService = {
                         valueType: attr.valueType,
                         isValuable: attr.isValuable,
                         isPrinted: attr.isPrinted,
-                        isIncluded: attr.isIncluded,
                         isVisible: attr.isVisible,
                         isImportant: attr.isImportant,
                         isActive: attr.isActive,
                         order: attr.order,
                         name: attr.name,
-                        attributeSets: [{ name: attr.name }], 
+                        attributeSets: [{ name: attr.name }], // Add attributeSets for compatibility
                         values: (attr.values || []).map((value: any) => ({
                             attributeValueId: value.attributeValueId,
                             display: value.display,
-                            sets: value.set ? [{
-                                language: value.set.language,
-                                stringValue: value.set.stringValue,
-                                decimalValue: value.set.decimalValue,
-                                dateTimeValue: value.set.dateTimeValue,
-                                boolValue: value.set.boolValue
-                            }] : []
+                            sets: (value.sets || []).map((set: any) => ({
+                                language: set.language,
+                                stringValue: set.stringValue,
+                                decimalValue: set.decimalValue,
+                                dateTimeValue: set.dateTimeValue,
+                                boolValue: set.boolValue
+                            }))
                         }))
                     }))
                 }))
@@ -316,12 +321,12 @@ export const cvService = {
 
         return item
     },
-        updateCv: async (data: any): Promise<any> => {
-        const response = await axiosInstance.put<any>(`Resumes/update`, data);
+    updateVacancy: async (data: any): Promise<any> => {
+        const response = await axiosInstance.put<any>(`Vacancies/update`, data);
         return response.data;
     },
-    deleteCv: async (id: number): Promise<any> => {
-        const response = await axiosInstance.delete<any>(`Resumes/delete?ResumeId=${id}`);
+    deleteVacancy: async (id: number): Promise<any> => {
+        const response = await axiosInstance.delete<any>(`Vacancies/delete?VacancyId=${id}`);
         return response.data;
     }
 };

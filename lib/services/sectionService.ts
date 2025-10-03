@@ -96,13 +96,19 @@ export const sectionService = {
                 isActive: it.isActive,
                 sortOrder: it.sortOrder ?? 0,
                 isChangeable: it.isChangeable,
-                translations: it.translation
-                    ? [{
-                        language: it.translation.language ?? '',
-                        title: it.translation.title ?? '',
-                        description: it.translation.description ?? '',
-                    }]
-                    : [],
+                translations: Array.isArray(it.translation)
+                    ? it.translation.map((tr: any) => ({
+                        language: tr.language ?? '',
+                        title: tr.title ?? '',
+                        description: tr.description ?? '',
+                    }))
+                    : it.translation
+                        ? [{
+                            language: it.translation.language ?? '',
+                            title: it.translation.title ?? '',
+                            description: it.translation.description ?? '',
+                        }]
+                        : [],
                 // Include step information
                 step: it.step ? {
                     id: it.step.id,
@@ -111,7 +117,7 @@ export const sectionService = {
                     type: it.step.type,
                     sortOrder: it.step.sortOrder,
                     isActive: it.step.isActive
-                } : null
+                } : undefined
             }))
         }
 
@@ -212,9 +218,11 @@ export const sectionService = {
         const response = await axiosInstance.put('Sections/update', apiPayload)
         return response.data
     },
-    editSectionsQueue: async (ids: number[], stepId?: number): Promise<any> => {
-        const url = stepId != null ? `Section/update-queue/${stepId}` : 'Section/update-queue'
-        const response = await axiosInstance.put(url, ids)
+    editSectionsQueue: async (stepId: number, sectionIdsInOrder: number[]): Promise<any> => {
+        const response = await axiosInstance.put('Sections/update-queue', {
+            stepId,
+            sectionIdsInOrder
+        })
         return response.data
     },
     editSectionStatus: async (sectionId: number, isActive: boolean): Promise<void> => {

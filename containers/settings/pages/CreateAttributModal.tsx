@@ -11,8 +11,12 @@ import { useSections } from "@/lib/hooks/useSection"
 import { useCreateAttribut, useEditAttribut } from "@/lib/hooks/useAttribut"
 import { attributService } from "@/lib/services/attributServices"
 import { sectionService } from "@/lib/services/sectionService"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Check, ChevronsUpDown, X } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-type CreateAttributeModalProps = { onClose?: () => void; id?: number; onOpenValues?: (attributeId: number) => void }
+type CreateAttributeModalProps = { onClose?: () => void; id?: number; onOpenValues?: (attributeId: number, isNewAttribute: boolean) => void }
 const LANGS = ['az', 'en', 'ru'] as const
 type Lang = typeof LANGS[number]
 
@@ -21,11 +25,20 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
     const t = useTranslations("attribute")
     const tc = useTranslations("common")
 
-    const [moduleType, setModuleType] = useState<'' | 'cv' | 'vakansiya'>('')
-    const [headerStep, setHeaderStep] = useState('')
+    const [cvSections, setCvSections] = useState<number[]>([])
+    const [vacancySections, setVacancySections] = useState<number[]>([])
     const [attributeType, setAttributeType] = useState("")
+    const [cvSectionsOpen, setCvSectionsOpen] = useState(false)
+    const [vacancySectionsOpen, setVacancySectionsOpen] = useState(false)
+    
+    // Auto-disable addable flag when attribute type is not Select or Multiselect
+    useEffect(() => {
+        if (attributeType && attributeType !== "5" && attributeType !== "6") {
+            setFlags(prev => ({ ...prev, addable: false }))
+        }
+    }, [attributeType])
     const [selectedLanguage, setSelectedLanguage] = useState<Lang>('az')
-    const [flags, setFlags] = useState({ showInTable: false, required: false, showInPrint: false, addable: false })
+    const [flags, setFlags] = useState({ showInTable: false, required: false, showInPrint: false, addable: false, included: false })
     const [inputTitleLanguages, setInputTitleLanguages] = useState<Record<string, string>>({})
     const [titleIds, setTitleIds] = useState<Record<string, number | undefined>>({})
     const [loadingEdit, setLoadingEdit] = useState(false)
@@ -36,19 +49,30 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
     const isEdit = !!id
     const requiresValues = attributeType === "5" || attributeType === "6"
 
-    // Map cv -> '1', vakansiya -> '2' for GET params
-    const typeParam = moduleType ? (moduleType === 'cv' ? '1' : '2') : undefined
-
-    const { data: headerSections = [], isLoading: headerLoading } = useSections(
-        { pageNumber: 1, pageSize: 1000, isActive: true, type: typeParam } as any,
-        { enabled: !!typeParam, keepPreviousData: true, staleTime: 60_000 }
+    // Fetch CV sections (Type 1)
+    const { data: cvSectionsList = [], isLoading: cvSectionsLoading } = useSections(
+        { pageNumber: 1, pageSize: 1000, isActive: true, type: '1' } as any,
+        { keepPreviousData: true, staleTime: 60_000 }
     )
 
-    const headerOptions = (Array.isArray(headerSections) ? headerSections : []).map((sec: any) => {
+    // Fetch Vacancy sections (Type 2)
+    const { data: vacancySectionsList = [], isLoading: vacancySectionsLoading } = useSections(
+        { pageNumber: 1, pageSize: 1000, isActive: true, type: '2' } as any,
+        { keepPreviousData: true, staleTime: 60_000 }
+    )
+
+    const cvSectionsOptions = (Array.isArray(cvSectionsList) ? cvSectionsList : []).map((sec: any) => {
         const trs = Array.isArray(sec?.translations) ? sec.translations : []
         const az = trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').toLowerCase() === 'az')
         const en = trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').toLowerCase() === 'en')
-        return { value: String(sec.id), label: az?.title || en?.title || trs[0]?.title || sec?.stepName || `#${sec?.id}` }
+        return { id: sec.id, label: az?.title || en?.title || trs[0]?.title || sec?.stepName || `#${sec?.id}` }
+    })
+
+    const vacancySectionsOptions = (Array.isArray(vacancySectionsList) ? vacancySectionsList : []).map((sec: any) => {
+        const trs = Array.isArray(sec?.translations) ? sec.translations : []
+        const az = trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').toLowerCase() === 'az')
+        const en = trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').toLowerCase() === 'en')
+        return { id: sec.id, label: az?.title || en?.title || trs[0]?.title || sec?.stepName || `#${sec?.id}` }
     })
 
     // Load attribute when editing
@@ -65,22 +89,22 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
             console.log('Processed Attribute Data:', data)
             if (!data) return
 
-            // Set section ID
-            if (data.sectionId != null) setHeaderStep(String(data.sectionId))
-
             // Set attribute type
             if (data.valueType != null) setAttributeType(String(data.valueType))
 
             // Set flags - handle both old and new field names
             setFlags({
                 addable: !!data.isValuable,
-                showInTable: !!data.isVisible || !!data.isVisiable,
-                required: !!data.isImportant || !!data.isImportand,
-                showInPrint: !!data.isPrinted
+                showInTable: !!data.isVisible || !!data.isVisible,
+                required: !!data.isImportant || !!data.isImportant,
+                showInPrint: !!data.isPrinted,
+                included: !!data.isIncluded,
+
             })
 
             // Handle translations from new API format
-            const arr = Array.isArray(data.setCreateAttributeRequest) ? data.setCreateAttributeRequest : []
+            const arr = Array.isArray(data.attributeSets) ? data.attributeSets : 
+                       Array.isArray(data.setCreateAttributeRequest) ? data.setCreateAttributeRequest : []
             console.log('Translations array:', arr)
             const titles: Record<string, string> = {}
             const ids: Record<string, number | undefined> = {}
@@ -98,21 +122,34 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
             setInputTitleLanguages(titles)
             setTitleIds(ids)
 
-            // Now we need to determine module type by fetching section data
-            if (data.sectionId != null) {
-                console.log('Loading section data for sectionId:', data.sectionId)
-                // Fetch section data to get step type
-                sectionService.getIdSections(data.sectionId).then((sectionResp: any) => {
+            // Load sectionIds if available
+            if (Array.isArray(data.sectionIds) && data.sectionIds.length > 0) {
+                console.log('Section IDs:', data.sectionIds)
+                // We need to determine which sections are CV (type 1) and which are Vacancy (type 2)
+                // Fetch section details for each sectionId
+                Promise.all(
+                    data.sectionIds.map((sectionId: number) =>
+                        sectionService.getIdSections(sectionId).catch(() => null)
+                    )
+                ).then(responses => {
                     if (!active) return
-                    console.log('Section API Response:', sectionResp)
-                    const sectionData = sectionResp?.responseValue ?? sectionResp?.response ?? sectionResp
-                    console.log('Processed Section Data:', sectionData)
-                    if (sectionData?.step?.type) {
-                        const stepType = Number(sectionData.step.type)
-                        console.log('Step Type:', stepType)
-                        if (stepType === 1) setModuleType('cv')
-                        else if (stepType === 2) setModuleType('vakansiya')
-                    }
+                    const cvSecs: number[] = []
+                    const vacancySecs: number[] = []
+                    
+                    responses.forEach((resp, idx) => {
+                        if (!resp) return
+                        const sectionData = resp?.responseValue ?? resp?.response ?? resp
+                        const stepType = Number(sectionData?.step?.type)
+                        const sectionId = data.sectionIds[idx]
+                        
+                        if (stepType === 1) cvSecs.push(sectionId)
+                        else if (stepType === 2) vacancySecs.push(sectionId)
+                    })
+                    
+                    setCvSections(cvSecs)
+                    setVacancySections(vacancySecs)
+                    console.log('Loaded CV sections:', cvSecs)
+                    console.log('Loaded Vacancy sections:', vacancySecs)
                 }).catch(err => {
                     console.error('Failed to load section data:', err)
                 })
@@ -121,33 +158,29 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
         return () => { active = false }
     }, [id])
 
-    const normalizeType = (val: any): '' | 'cv' | 'vakansiya' => {
-        const v = String(val ?? '').toLowerCase()
-        if (!v) return ''
-        if (v.startsWith('cv')) return 'cv'
-        if (v.includes('vakans')) return 'vakansiya'
-        return ''
-    }
-
     const buildTitleTranslations = () =>
         LANGS.map(lang => {
             const name = (inputTitleLanguages[lang] || '').trim()
-            if (!name) return null
-            const obj: any = { name, language: lang }
+            const obj: any = { name: name || '', language: lang }
             if (isEdit && titleIds[lang] != null) obj.id = titleIds[lang]
             return obj
-        }).filter(Boolean) as { id?: number; name: string; language: string }[]
+        }) as { id?: number; name: string; language: string }[]
 
-    const buildEditPayload = () =>
-        Object.fromEntries(Object.entries({
+    const buildEditPayload = () => {
+        const allSectionIds = [...cvSections, ...vacancySections]
+        return Object.fromEntries(Object.entries({
             id,
-            sectionId: headerStep ? Number(headerStep) : undefined,
             valueType: attributeType ? Number(attributeType) : undefined,
             isValuable: !!flags.addable,
-            isVisiable: !!flags.showInTable,
+            isVisible: !!flags.showInTable,
             isImportant: !!flags.required,
-            setCreateAttributeRequest: buildTitleTranslations()
+            isPrinted: !!flags.showInPrint,
+            isIncluded: !!flags.included,
+            isActive: true,
+            sectionIds: allSectionIds.length > 0 ? allSectionIds : undefined,
+            attributeSets: buildTitleTranslations()
         }).filter(([, v]) => v !== undefined))
+    }
 
     const valueTypeMap: Record<string, number> = {
         string: 0, number: 1, radio: 2, textarea: 3, dropdown: 4, multiselect: 5,
@@ -160,21 +193,26 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
         const vt = attributeType && /^\d+$/.test(attributeType)
             ? Number(attributeType)
             : valueTypeMap[attributeType] ?? undefined
+        const allSectionIds = [...cvSections, ...vacancySections]
         return Object.fromEntries(Object.entries({
-            sectionId: headerStep ? Number(headerStep) : undefined,
             valueType: vt,
-            isChangeable: true,
-            isMultiple: (attributeType === '6' || vt === valueTypeMap.multiselect) ? true : undefined,
             isValuable: !!flags.addable,
-            isVisiable: !!flags.showInTable,
+            isVisible: !!flags.showInTable,
             isImportant: !!flags.required,
             isPrinted: !!flags.showInPrint,
+            isIncluded: !!flags.included,
             isActive: true,
-            setCreateAttributeRequest: trans.length ? trans : undefined
+            sectionIds: allSectionIds.length > 0 ? allSectionIds : undefined,
+            attributeSets: trans.length ? trans : undefined
         }).filter(([, v]) => v !== undefined))
     }
 
     const extractCreatedAttributeId = (resp: any): number | null => {
+        // First check responseValue.id (new API format)
+        if (resp?.responseValue?.id && typeof resp.responseValue.id === 'number') {
+            return resp.responseValue.id
+        }
+        // Fallback to old formats
         const r = resp?.response || resp
         const raw = r?.atributeId ?? r?.attributeId ?? r?.id ?? r?.responseId
         return (typeof raw === 'number' && raw > 0) ? raw : null
@@ -190,7 +228,7 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
                 await editAttribut.mutateAsync({ id: attrId, data })
                 if (requiresValues) {
                     if (onOpenValues) {
-                        onOpenValues(attrId)
+                        onOpenValues(attrId, false) // false = not new, use update API
                         return
                     }
                 }
@@ -205,7 +243,7 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
             const newId = extractCreatedAttributeId(resp)
             if (newId && requiresValues) {
                 if (onOpenValues) {
-                    onOpenValues(newId)
+                    onOpenValues(newId, true) // true = new, use create API
                     return
                 }
             }
@@ -223,28 +261,146 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
                     {loadingEdit && isEdit && (
                         <div className="text-sm text-muted-foreground">{t("loading")}</div>
                     )}
-                    <div className="flex gap-4">
-                        <div className="flex flex-col flex-1">
-                            <label className="mb-1 text-sm font-medium">{t("type")}</label>
-                            <Dropdown
-                                value={moduleType}
-                                onChange={(v: string) => setModuleType(v as any)}
-                                options={[{ value: "cv", label: "CV" }, { value: "vakansiya", label: "Vakansiya" }]}
-                                placeholder={tc("selectPlaceholder")}
-                            />
+                    
+                    {/* CV and Vacancy Sections - Side by Side */}
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* CV Sections Multi-Select */}
+                        <div className="flex flex-col">
+                        <label className="mb-2 text-sm font-medium">{t("cvSections")}</label>
+                        <Popover open={cvSectionsOpen} onOpenChange={setCvSectionsOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={cvSectionsOpen}
+                                    className="w-full justify-between"
+                                >
+                                    {cvSections.length > 0
+                                        ? `${cvSections.length} ${t("selected")}`
+                                        : t("selectCvSections")}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0">
+                                <Command>
+                                    <CommandInput placeholder={t("searchSections")} />
+                                    <CommandEmpty>{t("noSectionFound")}</CommandEmpty>
+                                    <CommandGroup className="max-h-64 overflow-auto">
+                                        {cvSectionsOptions.map((option) => (
+                                            <CommandItem
+                                                key={option.id}
+                                                value={String(option.id)}
+                                                onSelect={() => {
+                                                    setCvSections(prev =>
+                                                        prev.includes(option.id)
+                                                            ? prev.filter(id => id !== option.id)
+                                                            : [...prev, option.id]
+                                                    )
+                                                }}
+                                            >
+                                                <Check
+                                                    className={cn(
+                                                        "mr-2 h-4 w-4",
+                                                        cvSections.includes(option.id) ? "opacity-100" : "opacity-0"
+                                                    )}
+                                                />
+                                                {option.label}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        {cvSections.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                                {cvSections.map(sectionId => {
+                                    const option = cvSectionsOptions.find(o => o.id === sectionId)
+                                    return (
+                                        <span
+                                            key={sectionId}
+                                            className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded"
+                                        >
+                                            {option?.label || sectionId}
+                                            <X
+                                                className="h-3 w-3 cursor-pointer"
+                                                onClick={() => setCvSections(prev => prev.filter(id => id !== sectionId))}
+                                            />
+                                        </span>
+                                    )
+                                })}
+                            </div>
+                        )}
                         </div>
-                        <div className="flex flex-col flex-1">
-                            <label className="mb-1 text-sm font-medium">{t("headerSelectPlaceholder")}</label>
-                            <Dropdown
-                                value={headerStep}
-                                onChange={(v: string) => setHeaderStep(v)}
-                                options={headerOptions}
-                                placeholder={!moduleType ? t("type") : headerLoading ? t("loading") : t("headerSelectPlaceholder")}
-                                disabled={!moduleType || headerLoading || headerOptions.length === 0}
-                            />
+
+                        {/* Vacancy Sections Multi-Select */}
+                        <div className="flex flex-col">
+                        <label className="mb-2 text-sm font-medium">{t("vacancySections")}</label>
+                        <Popover open={vacancySectionsOpen} onOpenChange={setVacancySectionsOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={vacancySectionsOpen}
+                                    className="w-full justify-between"
+                                >
+                                    {vacancySections.length > 0
+                                        ? `${vacancySections.length} ${t("selected")}`
+                                        : t("selectVacancySections")}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0">
+                                <Command>
+                                    <CommandInput placeholder={t("searchSections")} />
+                                    <CommandEmpty>{t("noSectionFound")}</CommandEmpty>
+                                    <CommandGroup className="max-h-64 overflow-auto">
+                                        {vacancySectionsOptions.map((option) => (
+                                            <CommandItem
+                                                key={option.id}
+                                                value={String(option.id)}
+                                                onSelect={() => {
+                                                    setVacancySections(prev =>
+                                                        prev.includes(option.id)
+                                                            ? prev.filter(id => id !== option.id)
+                                                            : [...prev, option.id]
+                                                    )
+                                                }}
+                                            >
+                                                <Check
+                                                    className={cn(
+                                                        "mr-2 h-4 w-4",
+                                                        vacancySections.includes(option.id) ? "opacity-100" : "opacity-0"
+                                                    )}
+                                                />
+                                                {option.label}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        {vacancySections.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                                {vacancySections.map(sectionId => {
+                                    const option = vacancySectionsOptions.find(o => o.id === sectionId)
+                                    return (
+                                        <span
+                                            key={sectionId}
+                                            className="inline-flex items-center gap-1 bg-green-100 text-green-800 text-xs px-2 py-1 rounded"
+                                        >
+                                            {option?.label || sectionId}
+                                            <X
+                                                className="h-3 w-3 cursor-pointer"
+                                                onClick={() => setVacancySections(prev => prev.filter(id => id !== sectionId))}
+                                            />
+                                        </span>
+                                    )
+                                })}
+                            </div>
+                        )}
                         </div>
                     </div>
-
+                    
                     <hr className="border-gray-300" />
 
                     <div className="space-y-4 mt-2">
@@ -289,7 +445,7 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
                             </Tabs>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-6 pt-4">
+                        <div className="grid grid-cols-4 gap-6 pt-4">
                             <FlagSwitch
                                 label={t("showInTable")}
                                 checked={flags.showInTable}
@@ -301,11 +457,19 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
                                 checked={flags.addable}
                                 onChange={v => setFlags(p => ({ ...p, addable: v }))}
                                 tYes={t("yes")} tNo={t("no")}
+                                disabled={attributeType !== "5" && attributeType !== "6"}
                             />
                             <FlagSwitch
                                 label={t("required")}
                                 checked={flags.required}
                                 onChange={v => setFlags(p => ({ ...p, required: v }))}
+                                tYes={t("yes")} tNo={t("no")}
+                            />
+                           
+                            <FlagSwitch
+                                label={t("included")}
+                                checked={flags.included}
+                                onChange={v => setFlags(p => ({ ...p, included: v }))}
                                 tYes={t("yes")} tNo={t("no")}
                             />
                         </div>
@@ -326,13 +490,13 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
                             disabled={
                                 createAttribut.isPending ||
                                 editAttribut.isPending ||
-                                !headerStep ||
+                                (cvSections.length === 0 && vacancySections.length === 0) ||
                                 !attributeType ||
                                 LANGS.every(l => !(inputTitleLanguages[l]?.trim()))
                             }
                         >
                             {createAttribut.isPending || editAttribut.isPending
-                                ? (isEdit ? "Saving..." : "Creating...")
+                                ? (isEdit ? tc("saving") || "Saving..." : tc("creating") || "Creating...")
                                 : (requiresValues ? t("next") : tc("save"))}
                         </Button>
                     </div>
@@ -342,19 +506,27 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
     )
 }
 
-const FlagSwitch = ({ label, checked, onChange, tYes, tNo }: {
-    label: string; checked: boolean; onChange: (v: boolean) => void; tYes: string; tNo: string
+const FlagSwitch = ({ label, checked, onChange, tYes, tNo, disabled = false }: {
+    label: string; checked: boolean; onChange: (v: boolean) => void; tYes: string; tNo: string; disabled?: boolean
 }) => (
     <div className="space-y-3">
-        <label className="block text-lg text-gray-800">{label}</label>
+        <label className={`block text-lg ${disabled ? 'text-gray-400' : 'text-gray-800'}`}>{label}</label>
         <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-                <Checkbox checked={checked} onCheckedChange={v => onChange(!!v)} />
-                <span className="text-base font-medium">{tYes}</span>
+                <Checkbox 
+                    checked={checked} 
+                    onCheckedChange={v => onChange(!!v)} 
+                    disabled={disabled}
+                />
+                <span className={`text-base font-medium ${disabled ? 'text-gray-400' : ''}`}>{tYes}</span>
             </div>
             <div className="flex items-center gap-2">
-                <Checkbox checked={!checked} onCheckedChange={() => onChange(false)} />
-                <span className="text-base font-medium">{tNo}</span>
+                <Checkbox 
+                    checked={!checked} 
+                    onCheckedChange={() => onChange(false)} 
+                    disabled={disabled}
+                />
+                <span className={`text-base font-medium ${disabled ? 'text-gray-400' : ''}`}>{tNo}</span>
             </div>
         </div>
     </div>

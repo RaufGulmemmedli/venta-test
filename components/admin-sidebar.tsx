@@ -17,6 +17,19 @@ import {
   User,
   Shield,
   Bell,
+  Home,
+  Briefcase,
+  GraduationCap,
+  Building2,
+  Layers,
+  Route,
+  Activity,
+  Building,
+  Network,
+  School,
+  DoorOpen,
+  Sliders,
+  UserCog,
 } from "lucide-react"
 
 interface SidebarProps {
@@ -32,29 +45,41 @@ export function AdminSidebar({ className }: SidebarProps) {
   const menuItems = [
     {
       title: t("dashboard"),
-      icon: (props: React.SVGProps<SVGSVGElement>) => <LayoutDashboard {...props} className="text-red-500" />, // Renk değişikliği burada yapıldı
+      icon: (props: React.SVGProps<SVGSVGElement>) => <LayoutDashboard {...props} className="text-red-500" />,
       href: "/dashboard",
     },
     {
       title: t("homePage"),
-      icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+      icon: (props: React.SVGProps<SVGSVGElement>) => <Home {...props} className="text-red-500" />,
       href: "/home-page",
     },
     {
       title: t("cvPage"),
-      icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+      icon: (props: React.SVGProps<SVGSVGElement>) => <FileText {...props} className="text-red-500" />,
       href: "/cv",
 
     },
     {
       title: t("vacancyPage"),
-      icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+      icon: (props: React.SVGProps<SVGSVGElement>) => <Briefcase {...props} className="text-red-500" />,
       href: "/vacancy",
     },
     {
       title: t("trainingPage"),
-      icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+      icon: (props: React.SVGProps<SVGSVGElement>) => <GraduationCap {...props} className="text-red-500" />,
       href: "/training",
+    },
+    {
+      title: "Administrator",
+      icon: (props: React.SVGProps<SVGSVGElement>) => <UserCog {...props} className="text-red-500" />,
+      href: "#",
+      children: [
+        {
+          title: "İstifadəçilər",
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          href: "/admin/users",
+        },
+      ]
     },
     {
       title: t("settings"),
@@ -63,50 +88,50 @@ export function AdminSidebar({ className }: SidebarProps) {
       children: [
         {
           title: t("atribut"),
-          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Sliders {...props} className="text-red-500" />,
           href: "/settings/attribute",
         },
         {
           title: t("section"),
-          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Layers {...props} className="text-red-500" />,
           href: "/settings/section",
         },
         {
           title: t("step"),
-          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Route {...props} className="text-red-500" />,
           href: "/settings/step",
         },
         {
           title: t("activity"),
-          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Activity {...props} className="text-red-500" />,
           href: "/cv/activity",
         },{
           title: t("company"),
-          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Building2 {...props} className="text-red-500" />,
           href: "/cv/company",
         },
         {
           title: t("department"),
-          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          icon: (props: React.SVGProps<SVGSVGElement>) => <Network {...props} className="text-red-500" />,
           href: "/cv/department",
         },{
           title: t("trainingRooms"),
-          icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+          icon: (props: React.SVGProps<SVGSVGElement>) => <School {...props} className="text-red-500" />,
           href: "#",
           children: [
             {
               title: t("trainingFloors"),
-              icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+              icon: (props: React.SVGProps<SVGSVGElement>) => <Building {...props} className="text-red-500" />,
               href: "/training/floor",
             },
             {
               title: t("trainingRooms"),
-              icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+              icon: (props: React.SVGProps<SVGSVGElement>) => <DoorOpen {...props} className="text-red-500" />,
               href: "/training/room",
             },
             {
               title: t("trainingRoomParameters"),
-              icon: (props: React.SVGProps<SVGSVGElement>) => <Users {...props} className="text-red-500" />,
+              icon: (props: React.SVGProps<SVGSVGElement>) => <Sliders {...props} className="text-red-500" />,
               href: "/training/room-parameters",
             },
           ],
@@ -179,7 +204,7 @@ export function AdminSidebar({ className }: SidebarProps) {
     setOpenGroups((prev) => ({ ...prev, [href]: open }))
 
   return (
-    <div className={cn("pb-12 w-64 bg-[#ffe8f3]", className)} >
+    <div className={cn("pb-12 w-64 ", className)} >
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
           <h1 className="mb-2 px-4 text-lg font-semibold tracking-tight text-red-600">VENTA Company</h1>
@@ -253,10 +278,11 @@ function MenuNode({ item, level }: { item: any; level: number }) {
       <Button
         key={item.href}
         variant={isExactActive(item.href) ? "secondary" : "ghost"}
-        className="w-full justify-start"
+        className="w-full justify-start text-base"
+        style={{ fontSize: '16px' }}
         onClick={() => router.push(item.href)}
       >
-        <item.icon className="mr-2 h-4 w-4" />
+        <item.icon className="mr-2 h-5 w-5" />
         {item.title}
       </Button>
     )
@@ -265,10 +291,14 @@ function MenuNode({ item, level }: { item: any; level: number }) {
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
-        <Button variant={open || isActive(groupKey) ? "secondary" : "ghost"} className="w-full justify-start">
-          <item.icon className="mr-2 h-4 w-4" />
+        <Button 
+          variant={open || isActive(groupKey) ? "secondary" : "ghost"} 
+          className="w-full justify-start text-base"
+          style={{ fontSize: '16px' }}
+        >
+          <item.icon className="mr-2 h-5 w-5" />
           {item.title}
-          <ChevronDown className="ml-auto h-4 w-4 transition-transform" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
+          <ChevronDown className="ml-auto h-5 w-5 transition-transform" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-1">

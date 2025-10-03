@@ -3,9 +3,10 @@ import React, { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { useAllSteps } from "@/lib/hooks/useStep"
 import { useToast } from "@/components/ui/use-toast"
-import { ChevronLeft, CheckCircle, Camera, Upload, X, RotateCcw, Video, Play, Square } from "lucide-react"
+import { ChevronLeft, ChevronRight, CheckCircle, Camera, Upload, X, RotateCcw, Video, Play, Square } from "lucide-react"
 
 interface FormData {
   [key: string]: any;
@@ -59,11 +60,14 @@ export default function StaticStepPage() {
   const [capturedImages, setCapturedImages] = useState<string[]>([])
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [currentCamera, setCurrentCamera] = useState<'front' | 'back'>('front')
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([])
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [recordedVideos, setRecordedVideos] = useState<string[]>([])
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([])
+  const [savedMedia, setSavedMedia] = useState<Record<string, { images: string[], videos: string[], files: File[] }>>({})
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null)
 
@@ -79,8 +83,18 @@ export default function StaticStepPage() {
     setFormData(prev => ({ ...prev, [fieldId]: value }))
   }
 
-  const goToStep = (stepIndex: number) => {
-    router.push(`/cv-create?step=${stepIndex}`)
+  const getAvailableCameras = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const cameras = devices.filter(device => device.kind === 'videoinput')
+      setAvailableCameras(cameras)
+      
+      if (cameras.length > 0 && !selectedCameraId) {
+        setSelectedCameraId(cameras[0].deviceId)
+      }
+    } catch (error) {
+      console.error('Error getting cameras:', error)
+    }
   }
 
   const openFor = (btn: StaticStepButton) => {
@@ -110,25 +124,53 @@ export default function StaticStepPage() {
 
   useEffect(() => {
     if (uploadMode !== 'camera') return
-    (async () => {
+    
+    const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: currentCamera === 'front' ? 'user' : 'environment' },
-          audio: false,
-        })
+        // Stop existing stream first
+        if (cameraStream) {
+          cameraStream.getTracks().forEach(track => track.stop())
+        }
+        
+        // Get available cameras first
+        await getAvailableCameras()
+        
+        // Use selected camera or default
+        const constraints: MediaStreamConstraints = {
+          video: selectedCameraId 
+            ? { 
+                deviceId: { exact: selectedCameraId },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              }
+            : { 
+                facingMode: currentCamera === 'front' ? 'user' : 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              },
+          audio: true,
+        }
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints)
         setCameraStream(stream)
-      } catch {
-        toast({ variant: "destructive", description: "Kamera açıla bilmədi. Brauzerdə icazə verin." })
+      } catch (error) {
+        console.error('Camera error:', error)
+        toast({ 
+          variant: "destructive", 
+          description: `Kamera açıla bilmədi: ${error instanceof Error ? error.message : 'Naməlum xəta'}` 
+        })
         setUploadMode(null)
       }
-    })()
-  }, [uploadMode, currentCamera])
+    }
+    
+    startCamera()
+  }, [uploadMode, currentCamera, selectedCameraId])
 
   useEffect(() => {
     if (cameraStream && videoRef.current) {
       const v = videoRef.current
       v.srcObject = cameraStream as any
-      v.muted = true
+      v.muted = false
       v.playsInline = true
       v.play().catch(() => {})
     }
@@ -137,20 +179,77 @@ export default function StaticStepPage() {
   useEffect(() => () => stopCamera(), [])
 
   const switchCamera = async () => {
-    stopCamera()
-    setCurrentCamera(p => (p === 'front' ? 'back' : 'front'))
-    setUploadMode('camera') // trigger effect to reopen
+    try {
+      // Stop current camera
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop())
+        setCameraStream(null)
+      }
+      
+      // Get available cameras if not already done
+      if (availableCameras.length === 0) {
+        await getAvailableCameras()
+      }
+      
+      // Find next camera
+      const currentIndex = availableCameras.findIndex(cam => cam.deviceId === selectedCameraId)
+      const nextIndex = (currentIndex + 1) % availableCameras.length
+      const nextCamera = availableCameras[nextIndex]
+      
+      if (nextCamera) {
+        setSelectedCameraId(nextCamera.deviceId)
+        
+        // Wait a bit for cleanup
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        // Start new camera
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              deviceId: { exact: nextCamera.deviceId },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: true,
+          })
+          setCameraStream(stream)
+          toast({ description: `Kamera dəyişdirildi: ${nextCamera.label || `Kamera ${nextIndex + 1}`}` })
+        } catch (error) {
+          console.error('Camera switch error:', error)
+          toast({ 
+            variant: "destructive", 
+            description: `Kamera dəyişdirilə bilmədi: ${error instanceof Error ? error.message : 'Naməlum xəta'}` 
+          })
+        }
+      } else {
+        toast({ 
+          variant: "destructive", 
+          description: "Başqa kamera tapılmadı" 
+        })
+      }
+    } catch (error) {
+      console.error('Switch camera error:', error)
+    }
   }
 
   const handleFileUploadClick = () => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = 'image/*,.pdf,.doc,.docx'
+    input.accept = activeUpload?.type === 'video' ? 'video/*' : 'image/*,.pdf,.doc,.docx'
+    input.multiple = true
     input.onchange = e => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        setUploadedFile(file)
-        toast({ description: `Fayl seçildi: ${file.name}` })
+      const files = Array.from((e.target as HTMLInputElement).files || [])
+      if (files.length > 0 && activeUpload) {
+        // Save files to savedMedia
+        setSavedMedia(prev => ({
+          ...prev,
+          [activeUpload.id]: {
+            images: prev[activeUpload.id]?.images || [],
+            videos: prev[activeUpload.id]?.videos || [],
+            files: [...(prev[activeUpload.id]?.files || []), ...files]
+          }
+        }))
+        toast({ description: `${files.length} fayl seçildi` })
         closeModal()
       }
     }
@@ -219,17 +318,42 @@ export default function StaticStepPage() {
     })
   }
 
+  const removeSavedMedia = (buttonId: string, type: 'image' | 'video' | 'file', index: number) => {
+    setSavedMedia(prev => {
+      const current = prev[buttonId] || { images: [], videos: [], files: [] }
+      const updated = { ...current }
+      
+      if (type === 'image') {
+        updated.images = current.images.filter((_, i) => i !== index)
+      } else if (type === 'video') {
+        URL.revokeObjectURL(current.videos[index])
+        updated.videos = current.videos.filter((_, i) => i !== index)
+      } else if (type === 'file') {
+        updated.files = current.files.filter((_, i) => i !== index)
+      }
+      
+      return { ...prev, [buttonId]: updated }
+    })
+  }
+
+  const getTotalMediaCount = (buttonId: string) => {
+    const media = savedMedia[buttonId]
+    if (!media) return 0
+    return media.images.length + media.videos.length + media.files.length
+  }
+
+  const goToStep = (stepIndex: number) => {
+    router.push(`/cv-create?step=${stepIndex}`)
+  }
+
   const staticStepButtons: StaticStepButton[] = [
     { id: 'button-1', label: 'Vəsiqənin şəkili', type: 'image' },
     { id: 'button-2', label: 'Namizədin şəkili', type: 'image' },
-    { id: 'button-3', label: 'Arxafonu təmizlənilməmiş şəkil', type: 'image' },
-    { id: 'button-4', label: 'Profil şəkli', type: 'image' },
     { id: 'button-5', label: 'Əlavə sertifikatlar', type: 'image' },
     { id: 'button-6', label: 'Təlim sertifikat şəkili', type: 'image' },
     { id: 'button-7', label: 'Video çək', type: 'video' }
   ]
 
-  // Unmount-da kameranı dayandır
   React.useEffect(() => {
     return () => { try { stopCamera() } catch {} }
   }, [])
@@ -278,7 +402,8 @@ export default function StaticStepPage() {
                     <span className="text-sm font-medium">{staticStepNumber}</span>
                   </div>
                   <span className="ml-2 text-sm font-medium text-red-600">
-                    Statik Step {staticStepNumber}
+                    Media
+                    {/* {staticStepNumber} */}
                   </span>
                 </div>
               </div>
@@ -291,6 +416,43 @@ export default function StaticStepPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
+          {/* Media Summary Card */}
+          {Object.keys(savedMedia).length > 0 && (
+            <Card className="border-2 border-blue-500 bg-gradient-to-r from-blue-50 to-purple-50 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">Yüklənmiş Media</h3>
+                    <p className="text-sm text-gray-600">Sənədləriniz uğurla yükləndi</p>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <div className="flex items-center gap-2 text-2xl font-bold text-blue-600">
+                        <Camera className="w-6 h-6" />
+                        {Object.values(savedMedia).reduce((sum, media) => sum + media.images.length, 0)}
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">Şəkil</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center gap-2 text-2xl font-bold text-purple-600">
+                        <Video className="w-6 h-6" />
+                        {Object.values(savedMedia).reduce((sum, media) => sum + media.videos.length, 0)}
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">Video</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center gap-2 text-2xl font-bold text-green-600">
+                        <Upload className="w-6 h-6" />
+                        {Object.values(savedMedia).reduce((sum, media) => sum + media.files.length, 0)}
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">Fayl</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="border-0 shadow-none bg-transparent p-0">
             <CardHeader className="px-0 pt-0 pb-2">
               <CardTitle className="text-xl font-semibold text-gray-900">
@@ -301,22 +463,136 @@ export default function StaticStepPage() {
               </p>
             </CardHeader>
             <CardContent className="space-y-6 px-0 pb-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {staticStepButtons.map((button) => (
-                  <Button
-                    key={button.id}
-                    onClick={() => { openFor(button) }}
-                    className="h-20 flex flex-col items-center justify-center gap-2 p-4"
-                    variant="outline"
-                  >
-                    {button.type === 'video' ? (
-                      <Video className="w-6 h-6" />
-                    ) : (
-                      <Upload className="w-6 h-6" />
-                    )}
-                    <span className="text-sm font-medium text-center">{button.label}</span>
-                  </Button>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {staticStepButtons.map((button) => {
+                  const mediaCount = getTotalMediaCount(button.id)
+                  const hasMedia = mediaCount > 0
+                  
+                  return (
+                    <div key={button.id} className="space-y-3">
+                      <Button
+                        onClick={() => { openFor(button) }}
+                        className={`w-full h-24 flex flex-col items-center justify-center gap-2 p-4 transition-all duration-200 ${
+                          hasMedia 
+                            ? 'border-2 border-green-500 bg-green-50 hover:bg-green-100 shadow-md' 
+                            : 'border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                        }`}
+                        variant="outline"
+                      >
+                        {button.type === 'video' ? (
+                          <Video className={`w-7 h-7 ${hasMedia ? 'text-green-600' : 'text-gray-600'}`} />
+                        ) : (
+                          <Upload className={`w-7 h-7 ${hasMedia ? 'text-green-600' : 'text-gray-600'}`} />
+                        )}
+                        <span className={`text-sm font-semibold text-center ${hasMedia ? 'text-green-700' : 'text-gray-700'}`}>
+                          {button.label}
+                        </span>
+                        {hasMedia && (
+                          <Badge className="bg-green-600 hover:bg-green-600 text-white text-xs px-2">
+                            {mediaCount} fayl
+                          </Badge>
+                        )}
+                      </Button>
+                      
+                      {/* Media Preview Cards */}
+                      {hasMedia && (
+                        <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-blue-50 shadow-sm">
+                          <CardContent className="p-4 space-y-3">
+                            {/* Images Preview */}
+                            {savedMedia[button.id]?.images.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                                  <Camera className="w-3 h-3" />
+                                  Şəkillər ({savedMedia[button.id].images.length})
+                                </h4>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {savedMedia[button.id].images.map((img, idx) => (
+                                    <div key={idx} className="relative group">
+                                      <img 
+                                        src={img} 
+                                        alt={`${button.label} ${idx + 1}`}
+                                        className="w-full h-20 object-cover rounded-lg border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform"
+                                        onClick={() => setSelectedImageIndex(idx)}
+                                      />
+                                      <Button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          removeSavedMedia(button.id, 'image', idx)
+                                        }}
+                                        size="sm"
+                                        variant="destructive"
+                                        className="absolute -top-1 -right-1 h-5 w-5 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Videos Preview */}
+                            {savedMedia[button.id]?.videos.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                                  <Video className="w-3 h-3" />
+                                  Videolar ({savedMedia[button.id].videos.length})
+                                </h4>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {savedMedia[button.id].videos.map((video, idx) => (
+                                    <div key={idx} className="relative group">
+                                      <video 
+                                        src={video} 
+                                        className="w-full h-20 object-cover rounded-lg border-2 border-white shadow-sm"
+                                        preload="metadata"
+                                      />
+                                      <Button
+                                        onClick={() => removeSavedMedia(button.id, 'video', idx)}
+                                        size="sm"
+                                        variant="destructive"
+                                        className="absolute -top-1 -right-1 h-5 w-5 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                                        <Play className="w-8 h-8 text-white opacity-80" />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Files Preview */}
+                            {savedMedia[button.id]?.files.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                                  <Upload className="w-3 h-3" />
+                                  Fayllar ({savedMedia[button.id].files.length})
+                                </h4>
+                                <div className="space-y-1">
+                                  {savedMedia[button.id].files.map((file, idx) => (
+                                    <div key={idx} className="flex items-center justify-between bg-white rounded px-2 py-1 text-xs border">
+                                      <span className="truncate flex-1">{file.name}</span>
+                                      <Button
+                                        onClick={() => removeSavedMedia(button.id, 'file', idx)}
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-600"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
@@ -399,9 +675,10 @@ export default function StaticStepPage() {
                    onClick={switchCamera}
                    size="sm"
                    className="bg-black/70 text-white hover:bg-black/80 backdrop-blur-sm"
+                   disabled={availableCameras.length <= 1}
                  >
                    <RotateCcw className="w-4 h-4 mr-2" />
-                   Kamera dəyiş
+                   Kamera dəyiş ({availableCameras.length})
                  </Button>
                </div>
              </div>
@@ -450,7 +727,17 @@ export default function StaticStepPage() {
              <div className="flex justify-center gap-4 pt-4">
                <Button
                  onClick={() => {
-                   toast({ description: "Şəkillər uğurla yükləndi!" })
+                   if (activeUpload) {
+                     setSavedMedia(prev => ({
+                       ...prev,
+                       [activeUpload.id]: {
+                         images: [...(prev[activeUpload.id]?.images || []), ...capturedImages],
+                         videos: prev[activeUpload.id]?.videos || [],
+                         files: prev[activeUpload.id]?.files || []
+                       }
+                     }))
+                   }
+                   toast({ description: "Şəkillər uğurla yadda saxlanıldı!" })
                    closeModal()
                  }}
                  disabled={capturedImages.length === 0}
@@ -477,7 +764,6 @@ export default function StaticStepPage() {
                  ref={videoRef} 
                  autoPlay 
                  playsInline 
-                 muted 
                  className="w-full h-[500px] object-cover" 
                />
                
@@ -487,9 +773,10 @@ export default function StaticStepPage() {
                    onClick={switchCamera}
                    size="sm"
                    className="bg-black/70 text-white hover:bg-black/80 backdrop-blur-sm"
+                   disabled={availableCameras.length <= 1}
                  >
                    <RotateCcw className="w-4 h-4 mr-2" />
-                   Kamera dəyiş
+                   Kamera dəyiş ({availableCameras.length})
                  </Button>
                </div>
 
@@ -556,7 +843,17 @@ export default function StaticStepPage() {
              <div className="flex justify-center gap-4 pt-4">
                <Button
                  onClick={() => {
-                   toast({ description: "Videolar uğurla yükləndi!" })
+                   if (activeUpload) {
+                     setSavedMedia(prev => ({
+                       ...prev,
+                       [activeUpload.id]: {
+                         images: prev[activeUpload.id]?.images || [],
+                         videos: [...(prev[activeUpload.id]?.videos || []), ...recordedVideos],
+                         files: prev[activeUpload.id]?.files || []
+                       }
+                     }))
+                   }
+                   toast({ description: "Videolar uğurla yadda saxlanıldı!" })
                    closeModal()
                  }}
                  disabled={recordedVideos.length === 0}
@@ -577,30 +874,61 @@ export default function StaticStepPage() {
       </BasicModal>
 
       {/* Enlarged Image Modal */}
-      {selectedImageIndex !== null && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80">
-          <div className="relative max-w-4xl max-h-[90vh] p-4">
-            <Button
-              onClick={() => setSelectedImageIndex(null)}
-              variant="ghost"
-              size="sm"
-              className="absolute top-2 right-2 h-8 w-8 p-0 bg-black/50 text-white hover:bg-black/70 z-10"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <img 
-              src={capturedImages[selectedImageIndex]} 
-              alt={`Enlarged ${selectedImageIndex + 1}`}
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-              <div className="bg-black/50 text-white px-3 py-1 rounded-full text-sm">
-                Şəkil {selectedImageIndex + 1} / {capturedImages.length}
+      {selectedImageIndex !== null && (() => {
+        // Find all images from savedMedia
+        const allImages: string[] = []
+        Object.values(savedMedia).forEach(media => {
+          allImages.push(...media.images)
+        })
+        
+        return (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 backdrop-blur-sm">
+            <div className="relative max-w-5xl max-h-[90vh] w-full p-4">
+              <Button
+                onClick={() => setSelectedImageIndex(null)}
+                variant="ghost"
+                size="sm"
+                className="absolute top-6 right-6 h-10 w-10 p-0 bg-white/20 text-white hover:bg-white/30 z-10 rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+              
+              {/* Navigation Buttons */}
+              {allImages.length > 1 && (
+                <>
+                  <Button
+                    onClick={() => setSelectedImageIndex(prev => prev! > 0 ? prev! - 1 : allImages.length - 1)}
+                    variant="ghost"
+                    size="sm"
+                    className="absolute left-6 top-1/2 -translate-y-1/2 h-12 w-12 p-0 bg-white/20 text-white hover:bg-white/30 z-10 rounded-full"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedImageIndex(prev => prev! < allImages.length - 1 ? prev! + 1 : 0)}
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-6 top-1/2 -translate-y-1/2 h-12 w-12 p-0 bg-white/20 text-white hover:bg-white/30 z-10 rounded-full"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </Button>
+                </>
+              )}
+              
+              <img 
+                src={allImages[selectedImageIndex]} 
+                alt={`Enlarged ${selectedImageIndex + 1}`}
+                className="max-w-full max-h-full object-contain rounded-xl mx-auto shadow-2xl"
+              />
+              <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+                <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+                  Şəkil {selectedImageIndex + 1} / {allImages.length}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

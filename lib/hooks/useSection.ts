@@ -78,12 +78,12 @@ export function useDeleteSection() {
     })
 }
 
-export interface SectionsQueueVars { ids: number[]; stepId?: number }
+export interface SectionsQueueVars { stepId: number; sectionIdsInOrder: number[] }
 
 export function useEditSectionsQueue() {
     const queryClient = useQueryClient()
     return useMutation<any, unknown, SectionsQueueVars>({
-        mutationFn: (vars) => sectionService.editSectionsQueue(vars.ids, vars.stepId),
+        mutationFn: (vars) => sectionService.editSectionsQueue(vars.stepId, vars.sectionIdsInOrder),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: sectionKeys.all })
             toast({ title: 'Success', description: 'Sıra yeniləndi.' })

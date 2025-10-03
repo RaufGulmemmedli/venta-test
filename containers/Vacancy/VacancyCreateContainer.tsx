@@ -8,9 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCvData, useCvById } from "@/lib/hooks/useCv";
+import { useVacancyData, useVacancyById } from "@/lib/hooks/useVacancy";
 import { useAllSteps } from "@/lib/hooks/useStep";
-import { cvService } from "@/lib/services/cvServices";
+import { vacancyService } from "@/lib/services/vacancyServices";
 import { ChevronLeft, ChevronRight, Circle, CheckCircle, Plus, Settings } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -27,11 +27,10 @@ interface FormData {
   [key: string]: any;
 }
 
-export default function CvCreateContainer() {
+export default function VacancyCreateContainer() {
   const router = useRouter();
   const { toast } = useToast();
-  
-  const t = useTranslations("cvCreate");
+  const t = useTranslations("vacancyCreate");
   
   // Get editId from URL parameters using useSearchParams
   const searchParams = useSearchParams();
@@ -49,8 +48,8 @@ export default function CvCreateContainer() {
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
-  // Fetch CV data for editing
-  const { data: editCvData, isLoading: editDataLoading } = useCvById(editId);
+  // Fetch Vacancy data for editing
+  const { data: editVacancyData, isLoading: editDataLoading } = useVacancyById(editId);
 
   // Debug logging for edit mode
   React.useEffect(() => {
@@ -58,9 +57,9 @@ export default function CvCreateContainer() {
       isEditMode,
       editId,
       editDataLoading,
-      editCvData: editCvData ? 'Data loaded' : 'No data'
+      editVacancyData: editVacancyData ? 'Data loaded' : 'No data'
     });
-  }, [isEditMode, editId, editDataLoading, editCvData]);
+  }, [isEditMode, editId, editDataLoading, editVacancyData]);
 
   useEffect(() => {
     setVisitedSteps(prev => {
@@ -71,20 +70,20 @@ export default function CvCreateContainer() {
     });
   }, [currentStepIndex]);
 
-  const { data: allStepsRaw = [], isLoading: stepsLoading } = useAllSteps('cv', 1);
+  const { data: allStepsRaw = [], isLoading: stepsLoading } = useAllSteps('vakansiya', 2);
   
   // Filter out inactive steps
   const allSteps = allStepsRaw.filter(step => step.isActive === true);
   
   // Debug logging for steps
-  console.log('CvCreateContainer - allStepsRaw:', allStepsRaw);
-  console.log('CvCreateContainer - allSteps (filtered):', allSteps);
-  console.log('CvCreateContainer - stepsLoading:', stepsLoading);
-  console.log('CvCreateContainer - isEditMode:', isEditMode);
+  console.log('VacancyCreateContainer - allStepsRaw:', allStepsRaw);
+  console.log('VacancyCreateContainer - allSteps (filtered):', allSteps);
+  console.log('VacancyCreateContainer - stepsLoading:', stepsLoading);
+  console.log('VacancyCreateContainer - isEditMode:', isEditMode);
   
   const currentStepId = allSteps[currentStepIndex]?.id;
   
-  const { data: currentStepData, isLoading: dataLoading } = useCvData(currentStepId);
+  const { data: currentStepData, isLoading: dataLoading } = useVacancyData(currentStepId);
 
   // Store step data when it's loaded
   useEffect(() => {
@@ -99,36 +98,36 @@ export default function CvCreateContainer() {
   // Edit modunda bütün step-lərin datasını yüklə
   useEffect(() => {
     const loadAllStepsData = async () => {
-      if (isEditMode && allSteps.length > 0 && editCvData) {
+      if (isEditMode && allSteps.length > 0 && editVacancyData) {
         try {
           // Load structure for all steps
           const allStepsDataPromises = allSteps.map(step => 
-            cvService.getCvData(step.id)
+            vacancyService.getVacancyData(step.id)
           );
           const results = await Promise.all(allStepsDataPromises);
           
           const newAllStepsData: Record<number, any> = {};
           
-          // Combine structure with CV data
+          // Combine structure with Vacancy data
           results.forEach((stepStructure: any, index: number) => {
             const stepId = allSteps[index].id;
-            const cvStep = editCvData.steps.find((s: any) => s.id === stepId);
+            const vacancyStep = editVacancyData.steps.find((s: any) => s.id === stepId);
             
-            if (stepStructure && cvStep) {
-              // Merge structure with actual CV data
+            if (stepStructure && vacancyStep) {
+              // Merge structure with actual Vacancy data
               newAllStepsData[stepId] = {
                 ...stepStructure,
                 sections: stepStructure.sections.map((section: any) => {
-                  const cvSection = cvStep.sections.find((s: any) => s.id === section.sectionId);
-                  if (cvSection) {
+                  const vacancySection = vacancyStep.sections.find((s: any) => s.id === section.sectionId);
+                  if (vacancySection) {
                     return {
                       ...section,
                       attributes: section.attributes.map((attr: any) => {
-                        const cvAttr = cvSection.attributes.find((a: any) => a.attributeId === attr.attributeId);
-                        if (cvAttr) {
+                        const vacancyAttr = vacancySection.attributes.find((a: any) => a.attributeId === attr.attributeId);
+                        if (vacancyAttr) {
                           return {
                             ...attr,
-                            values: cvAttr.values || attr.values
+                            values: vacancyAttr.values || attr.values
                           };
                         }
                         return attr;
@@ -152,16 +151,16 @@ export default function CvCreateContainer() {
     };
     
     loadAllStepsData();
-  }, [isEditMode, allSteps.length, editCvData]);
+  }, [isEditMode, allSteps.length, editVacancyData]);
 
   // Populate form data when editing
   useEffect(() => {
-    if (isEditMode && editCvData && !editDataLoading) {
+    if (isEditMode && editVacancyData && !editDataLoading) {
       const newFormData: FormData = {};
       
-      console.log('Edit CV Data received:', editCvData);
+      console.log('Edit Vacancy Data received:', editVacancyData);
       
-      editCvData.steps.forEach(step => {
+      editVacancyData.steps.forEach(step => {
         step.sections.forEach(section => {
           section.attributes.forEach(attribute => {
             console.log('Processing attribute:', attribute.attributeId, 'with values:', attribute.values);
@@ -177,16 +176,12 @@ export default function CvCreateContainer() {
                 
                 switch (attribute.valueType) {
                   case 6: // MultiSelect
-                    // For multiselect, we need to get all selected values
-                    // For now, we'll use the first value, but this might need adjustment
                     formValue = [azValue.stringValue || azValue.decimalValue || azValue.boolValue];
                     break;
                   case 5: // Select
-                    // For select, use the display value or the az value
                     formValue = value.display || azValue.stringValue || azValue.decimalValue || azValue.boolValue;
                     break;
                   case 8: // DateRange
-                    // Handle date range if needed
                     formValue = azValue.stringValue;
                     break;
                   case 7: // Date
@@ -200,7 +195,6 @@ export default function CvCreateContainer() {
                     formValue = azValue.decimalValue;
                     break;
                   default:
-                    // String, TextArea, Email, Phone, etc.
                     formValue = azValue.stringValue || azValue.decimalValue || azValue.boolValue;
                     break;
                 }
@@ -219,7 +213,7 @@ export default function CvCreateContainer() {
       console.log('Final populated form data:', newFormData);
       setFormData(newFormData);
     }
-  }, [isEditMode, editCvData, editDataLoading]);
+  }, [isEditMode, editVacancyData, editDataLoading]);
 
   const isValueEmpty = (attribute: any, value: any) => {
     const vt = attribute.valueType
@@ -238,7 +232,6 @@ export default function CvCreateContainer() {
       case 15: // Price
         return value === undefined || value === null || value === ""
       default:
-        // String, TextArea, Select, Email, Phone, Color, Radio...
         return value === undefined || value === null || (typeof value === "string" && value.trim() === "")
     }
   }
@@ -246,53 +239,24 @@ export default function CvCreateContainer() {
   const validateCurrentStep = () => {
     if (!currentStepData) return true
 
-    console.log('=== VALIDATION START ===');
-    console.log('Current formData:', formData);
-    console.log('Current step sections:', currentStepData.sections);
+    const requiredFields = currentStepData.sections
+      .flatMap((section: any) => section.attributes)
+      .filter((attr: any) => attr.isImportant || attr.isInportant) 
 
-    // Validate all instances of all sections in current step
-    for (const section of currentStepData.sections) {
-      const instanceCount = getSectionInstanceCount(section.sectionId);
-      const totalInstances = instanceCount + 1;
+    if (requiredFields.length === 0) return true
 
-      console.log(`Section ${section.sectionId} has ${totalInstances} instances`);
-
-      // Check each instance
-      for (let instanceIndex = 0; instanceIndex < totalInstances; instanceIndex++) {
-        const requiredFields = section.attributes.filter(
-          (attr: any) => attr.isImportant || attr.isInportant
-        );
-
-        console.log(`Instance ${instanceIndex} has ${requiredFields.length} required fields`);
-
-        for (const field of requiredFields) {
-          const key = instanceIndex === 0 ? field.attributeId : `${field.attributeId}_${instanceIndex}`;
-          const value = formData[key];
-          const fieldName = field.attributeSets?.[0]?.name || field.name || `Field ${field.attributeId}`;
-          
-          console.log('Validating field:', {
-            attributeId: field.attributeId,
-            key,
-            value,
-            valueType: field.valueType,
-            fieldName,
-            isImportant: field.isImportant,
-            isInportant: (field as any).isInportant,
-            isEmpty: isValueEmpty(field, value)
-          });
-          
-          if (isValueEmpty(field, value)) {
-                      toast({
-              variant: "destructive",
-              description: `${t("requiredField")} ${fieldName}${instanceIndex > 0 ? ` (${t("instance")} ${instanceIndex + 1})` : ''}`,
-            });
-            return false;
-          }
-        }
+    for (const field of requiredFields) {
+      const value = formData[field.attributeId]
+      const fieldName = field.attributeSets?.[0]?.name || field.name || `Field ${field.attributeId}`
+      if (isValueEmpty(field, value)) {
+          toast({
+            variant: "destructive",
+            description: `${t("requiredField")} ${fieldName}`,
+          })
+          return false
       }
     }
-    console.log('✅ VALIDATION PASSED');
-    return true;
+    return true
   };
 
   const validateAllSteps = () => {
@@ -300,39 +264,25 @@ export default function CvCreateContainer() {
     for (const step of allSteps) {
       const stepData = allStepsData[step.id];
       if (stepData) {
-        // Validate each section with all its instances
-        for (const section of stepData.sections) {
-          const instanceCount = getSectionInstanceCount(section.sectionId);
-          const totalInstances = instanceCount + 1;
+        const requiredFields = stepData.sections
+          .flatMap((section: any) => section.attributes)
+          .filter((attr: any) => attr.isImportant || attr.isInportant);
 
-          // Check each instance
-          for (let instanceIndex = 0; instanceIndex < totalInstances; instanceIndex++) {
-            const requiredFields = section.attributes.filter(
-              (attr: any) => attr.isImportant || attr.isInportant
-            );
-
-            for (const field of requiredFields) {
-              const key = instanceIndex === 0 ? field.attributeId : `${field.attributeId}_${instanceIndex}`;
-              const value = formData[key];
-              const fieldName = field.attributeSets?.[0]?.name || field.name || `Field ${field.attributeId}`;
-              const stepName = step.translations?.[0]?.title || `Step ${step.id}`;
-              
-              if (isValueEmpty(field, value)) {
-                toast({
-                  variant: "destructive",
-                  description: `${stepName} - Tələb olunan sahə doldurulmalıdır: ${fieldName}${instanceIndex > 0 ? ` (Nüsxə ${instanceIndex + 1})` : ''}`,
-                });
-                return false;
-              }
-            }
+        for (const field of requiredFields) {
+          const value = formData[field.attributeId];
+          const fieldName = field.attributeSets?.[0]?.name || field.name || `Field ${field.attributeId}`;
+          if (isValueEmpty(field, value)) {
+            toast({
+              variant: "destructive",
+              description: `${t("requiredField")} ${fieldName}`,
+            });
+            return false;
           }
         }
       }
     }
     return true;
   };
-
-
 
   const goToPreviousStep = () => {
     if (currentStepIndex > 0) {
@@ -356,12 +306,7 @@ export default function CvCreateContainer() {
     setCurrentStepIndex(prev => prev + 1);
   };
 
-  const createStaticStep = () => {
-    // Pass current step index as URL parameter
-    router.push(`/cv/static-step?fromStep=${currentStepIndex}`);
-  };
-
-  const createCvData = () => {
+  const createVacancyData = () => {
     if (!allSteps || allSteps.length === 0) return null;
 
     // Collect all sections from all active steps
@@ -377,37 +322,27 @@ export default function CvCreateContainer() {
 
     if (allSections.length === 0) return null;
 
-    const sectionDtos = allSections.map(section => {
-      const instanceCount = getSectionInstanceCount(section.sectionId);
-      const totalInstances = instanceCount + 1;
-      
-      // Collect all instances of this section
-      const sectionInstances = [];
-      
-      for (let instanceIndex = 0; instanceIndex < totalInstances; instanceIndex++) {
-        const instanceAttributes = section.attributes.map((attribute: any) => {
-          const key = instanceIndex === 0 ? attribute.attributeId : `${attribute.attributeId}_${instanceIndex}`;
-          const formValue = formData[key];
-          
-          const attributeValueIds: number[] = [];
-          const inputValue: { value: string; language: string }[] = [];
-          
-          if (formValue !== undefined && formValue !== null && formValue !== "") {
+    const sectionDtos = allSections.map(section => ({
+      sectionId: section.sectionId,
+      attributes: section.attributes.map((attribute: any) => {
+        const formValue = formData[attribute.attributeId];
+        
+        const attributeValueIds: number[] = [];
+        const inputValue: { value: string; language: string }[] = [];
+        
+        if (formValue !== undefined && formValue !== null && formValue !== "") {
           // Handle different value types based on attribute.valueType
           switch (attribute.valueType) {
             case 6: // MultiSelect
               if (Array.isArray(formValue)) {
                 formValue.forEach(val => {
-                  // Check if this value exists in attribute.values
                   const existingValue = attribute.values.find((v: any) => 
                     v.languages.some((lang: any) => lang.value === String(val))
                   );
                   
                   if (existingValue) {
-                    // Use existing attributeValueId
                     attributeValueIds.push(existingValue.attributeValueId);
                   } else {
-                    // New value - add to inputValue for all languages
                     ['az', 'en', 'ru'].forEach(lang => {
                       inputValue.push({
                         value: String(val),
@@ -420,16 +355,13 @@ export default function CvCreateContainer() {
               break;
             case 3: // Radio
             case 5: // Select
-              // Check if this value exists in attribute.values
               const existingValue = attribute.values.find((v: any) => 
                 v.languages.some((lang: any) => lang.value === String(formValue))
               );
               
               if (existingValue) {
-                // Use existing attributeValueId
                 attributeValueIds.push(existingValue.attributeValueId);
               } else {
-                // New value - add to inputValue for all languages
                 ['az', 'en', 'ru'].forEach(lang => {
                   inputValue.push({
                     value: String(formValue),
@@ -471,7 +403,6 @@ export default function CvCreateContainer() {
               }
               break;
             default:
-              // String, Number, TextArea, etc. - always new values
               ['az', 'en', 'ru'].forEach(lang => {
                 inputValue.push({
                   value: String(formValue),
@@ -482,47 +413,33 @@ export default function CvCreateContainer() {
           }
         }
 
-          return {
-            attributeId: attribute.attributeId,
-            attributeValueIds: attributeValueIds,
-            inputValue: inputValue
-          };
-        });
-        
-        sectionInstances.push({
-          sectionId: section.sectionId,
-          attributes: instanceAttributes
-        });
-      }
-      
-      return sectionInstances;
-    }).flat();
+        return {
+          attributeId: attribute.attributeId,
+          attributeValueIds: attributeValueIds,
+          inputValue: inputValue
+        };
+      })
+    }));
 
     return { sectionDtos };
   };
 
   const buildUpdateData = () => {
-    const cvData = createCvData();
-    if (!cvData) return null;
+    const vacancyData = createVacancyData();
+    if (!vacancyData) return null;
 
     return {
       id: editId,
-      sectionDtos: cvData.sectionDtos
+      sectionDtos: vacancyData.sectionDtos
     };
   };
 
   const updateFormData = (attributeId: number, value: any, instanceIndex?: number) => {
-    // Use the same key logic as validation: instanceIndex === 0 means first instance (no suffix)
-    const key = (instanceIndex !== undefined && instanceIndex > 0) ? `${attributeId}_${instanceIndex}` : attributeId;
-    console.log('📝 Updating formData:', { attributeId, key, value, instanceIndex });
-    setFormData(prev => {
-      const updated = {
-        ...prev,
-        [key]: value
-      };
-      console.log('📝 Updated formData:', updated);
-      return updated;
-    });
+    const key = instanceIndex !== undefined ? `${attributeId}_${instanceIndex}` : attributeId;
+    setFormData(prev => ({
+      ...prev,
+      [key]: value
+    }));
   };
 
   const addSectionInstance = (sectionId: number) => {
@@ -574,7 +491,7 @@ export default function CvCreateContainer() {
       // Force re-fetch of current step data to get updated values
       const currentStepId = allSteps[currentStepIndex]?.id;
       if (currentStepId) {
-        cvService.getCvData(currentStepId).then(stepData => {
+        vacancyService.getVacancyData(currentStepId).then(stepData => {
           setAllStepsData(prev => ({
             ...prev,
             [currentStepId]: stepData
@@ -722,7 +639,6 @@ export default function CvCreateContainer() {
                     >
                       <Checkbox style={{width: '26px', height: '16px'}}
                         checked={isSelected}
-                        
                         className="pointer-events-none"
                       />
                       <span className="text-sm flex-1">{opt.label}</span>
@@ -748,33 +664,36 @@ const extractOptions = (values: any[] = []) => {
   const seen = new Set<string>()
   const opts: { label: string; value: string }[] = []
   values.forEach(v => {
-    (v.languages || []).forEach((l: any) => {
-      const val = l.value || l.name
-      if (val && !seen.has(val)) {
-        seen.add(val)
-        opts.push({ label: val, value: val })
-      }
-    })
+    // Try display first (from API), then languages array
+    if (v.display && !seen.has(v.display)) {
+      seen.add(v.display)
+      opts.push({ label: v.display, value: v.display })
+    } else {
+      // Fallback to languages array
+      (v.languages || []).forEach((l: any) => {
+        const val = l.value || l.name
+        if (val && !seen.has(val)) {
+          seen.add(val)
+          opts.push({ label: val, value: val })
+        }
+      })
+    }
   })
   return opts
 }
 
   const renderAttributeInput = (attribute: any, instanceIndex?: number) => {
     const { attributeId, valueType, attributeSets, values } = attribute;
-    // Always use the same key logic: instanceIndex === 0 means first instance (no suffix)
-    const key = (instanceIndex !== undefined && instanceIndex > 0) ? `${attributeId}_${instanceIndex}` : attributeId;
+    const key = instanceIndex !== undefined ? `${attributeId}_${instanceIndex}` : attributeId;
     const rawValue = formData[key];
     const currentValue = rawValue ?? "";
-    
-    console.log('🎨 Rendering input:', { attributeId, instanceIndex, key, rawValue });
 
     // Debug logging for edit mode
     if (isEditMode) {
       console.log(`Rendering input for attribute ${attributeId}:`, {
         rawValue,
         currentValue,
-        formDataValue: formData[key],
-        instanceIndex
+        formDataValue: formData[attributeId]
       });
     }
 
@@ -788,7 +707,6 @@ const extractOptions = (values: any[] = []) => {
       value: normalizeInputValue(rawValue),
       onChange: (e: any) => {
         const val = getEventValue(e)
-        console.log('🔄 Input onChange triggered:', { attributeId, val, instanceIndex });
         updateFormData(attributeId, val, instanceIndex)
       },
       className: "w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -824,7 +742,7 @@ const extractOptions = (values: any[] = []) => {
                     checked={isSelected}
                     onChange={(e) => {
                       console.log('Radio selected:', e.target.value);
-                      updateFormData(attributeId, e.target.value, instanceIndex);
+                      updateFormData(attributeId, e.target.value);
                     }}
                     className="w-4 h-4 text-blue-600 bg-white border-gray-300 focus:ring-blue-500 focus:ring-2"
                   />
@@ -858,7 +776,7 @@ const extractOptions = (values: any[] = []) => {
         return (
           <Select
             value={currentValue}
-            onValueChange={(val) => updateFormData(attributeId, val, instanceIndex)}
+            onValueChange={(val) => updateFormData(attributeId, val)}
           >
             <SelectTrigger className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <SelectValue placeholder="Seçin..." />
@@ -877,7 +795,7 @@ const extractOptions = (values: any[] = []) => {
           <MultiSelectDropdown
             options={options}
             value={Array.isArray(currentValue) ? currentValue : []}
-            onChange={(val) => updateFormData(attributeId, val, instanceIndex)}
+            onChange={(val) => updateFormData(attributeId, val)}
             placeholder="Seçin..."
           />
         );
@@ -885,7 +803,7 @@ const extractOptions = (values: any[] = []) => {
         return (
           <StyledDatePicker
             value={currentValue}
-            onChange={(val) => updateFormData(attributeId, val, instanceIndex)}
+            onChange={(val) => updateFormData(attributeId, val)}
             placeholder="Tarix seçin"
           />
         );
@@ -901,8 +819,7 @@ const extractOptions = (values: any[] = []) => {
                   {
                     ...(typeof currentValue === "object" && currentValue ? currentValue : {}),
                     start: e.target.value
-                  },
-                  instanceIndex
+                  }
                 )
               }
             />
@@ -915,8 +832,7 @@ const extractOptions = (values: any[] = []) => {
                   {
                     ...(typeof currentValue === "object" && currentValue ? currentValue : {}),
                     end: e.target.value
-                  },
-                  instanceIndex
+                  }
                 )
               }
             />
@@ -927,9 +843,8 @@ const extractOptions = (values: any[] = []) => {
           <div className="flex items-center space-x-2">
             <Checkbox
               checked={currentValue}
-              onCheckedChange={(checked) => updateFormData(attributeId, checked, instanceIndex)}
+              onCheckedChange={(checked) => updateFormData(attributeId, checked)}
             />
-           
           </div>
         );
       case 10:
@@ -942,7 +857,7 @@ const extractOptions = (values: any[] = []) => {
         return (
           <StyledDateTimePicker
             value={currentValue}
-            onChange={(val) => updateFormData(attributeId, val, instanceIndex)}
+            onChange={(val) => updateFormData(attributeId, val)}
           />
         );
       case 14:
@@ -999,7 +914,7 @@ const extractOptions = (values: any[] = []) => {
             className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <span className={dateObj ? "text-gray-900" : "text-gray-500"}>
-              {dateObj ? format(dateObj, "dd.MM.yyyy") : (placeholder || t("selectDate"))}
+              {dateObj ? format(dateObj, "dd.MM.yyyy") : placeholder}
             </span>
             <CalendarIcon className="w-4 h-4 text-gray-500" />
           </button>
@@ -1043,7 +958,7 @@ const extractOptions = (values: any[] = []) => {
                 }}
                 className="ml-auto text-xs text-blue-600 hover:underline"
               >
-                {t("thisMonth")}
+                Bu ay
               </button>
             </div>
 
@@ -1065,7 +980,7 @@ const extractOptions = (values: any[] = []) => {
                 }}
                 className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100"
               >
-                {t("today")}
+                Bugün
               </button>
               {value && (
                 <button
@@ -1076,7 +991,7 @@ const extractOptions = (values: any[] = []) => {
                   }}
                   className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100"
                 >
-                  {t("clear")}
+                  Təmizlə
                 </button>
               )}
             </div>
@@ -1190,7 +1105,7 @@ const extractOptions = (values: any[] = []) => {
                 }}
                 className="ml-auto text-xs text-blue-600 hover:underline"
               >
-                {t("thisMonth")}
+                Bu ay
               </button>
             </div>
 
@@ -1318,23 +1233,10 @@ const extractOptions = (values: any[] = []) => {
                           >
                             {step.translations?.[0]?.title || `Step ${index + 1}`}
                           </span>
-                          <div className="w-8 h-0.5 bg-gray-300 mx-4" />
+                          {index < allSteps.length - 1 && <div className="w-8 h-0.5 bg-gray-300 mx-4" />}
                         </div>
                       );  
                     })}
-                    
-                    {/* Static Step Button */}
-                    <div className="flex items-center">
-                      <button
-                        onClick={createStaticStep}
-                        className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-dashed border-gray-400 text-gray-500 hover:border-red-500 hover:text-red-500 transition-all duration-200"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                      <span className="ml-2 text-sm font-medium text-gray-500">
-                       {t("mediaStep")}
-                      </span>
-                    </div>
                   </>
                 )}
               </div>
@@ -1356,9 +1258,6 @@ const extractOptions = (values: any[] = []) => {
           </div>
         ) : allSteps.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-              <Plus className="w-6 h-6 text-red-500" />
-            </div>
             <h3 className="text-lg font-medium mb-2">{t("noActiveSteps")}</h3>
             <p className="text-sm text-gray-600 mb-4">{t("noActiveStepsDesc")}</p>
           </div>
@@ -1414,7 +1313,7 @@ const extractOptions = (values: any[] = []) => {
                             <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
                               <div className="h-px bg-gray-300 flex-1"></div>
                               {/* <span>Nüsxə {instanceIndex + 1}</span> */}
-                              <div className="h-px bg-gray-300 flex-1"></div>
+                              {/* <div className="h-px bg-gray-300 flex-1"></div> */}
                             </div>
                           )}
                           
@@ -1437,19 +1336,16 @@ const extractOptions = (values: any[] = []) => {
                                         {isRequired && <span className="text-red-500 ml-1">*</span>}
                                       </label>
                                       {attribute.isValuable && (
-                                        // <Button
-                                        //   type="button"
-                                        //   variant="outline"
-                                        //   size="sm"
-                                         
-                                        //   className="flex items-center gap-1 "
-                                        // >
-                                          <Settings 
-                                            className="w-4 h-4 text-blue-600 hover:text-blue-700 cursor-pointer" 
-                                            onClick={() => openAttributeValuesModal(attribute.attributeId)}
-                                          />
-                                         
-                                        // </Button>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => openAttributeValuesModal(attribute.attributeId)}
+                                          className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                                        >
+                                          <Settings className="w-3 h-3" />
+                                          {t("values")}
+                                        </Button>
                                       )}
                                     </div>
                                     <div>
@@ -1491,33 +1387,33 @@ const extractOptions = (values: any[] = []) => {
                           setIsLoading(true);
                           
                           if (isEditMode) {
-                            // Update existing CV
+                            // Update existing Vacancy
                             const updateData = buildUpdateData();
                             if (updateData) {
                               console.log("Update Data being sent:", JSON.stringify(updateData, null, 2));
                               console.log("Form data:", formData);
                               console.log("All steps data:", allStepsData);
-                              await cvService.updateCv(updateData);
-                              toast({ description: t("cvUpdated") });
-                              router.push("/cv");
+                              await vacancyService.updateVacancy(updateData);
+                              toast({ description: t("vacancyUpdated") });
+                              router.push("/vacancy");
                             }
                           } else {
-                            // Create new CV
-                            const cvData = createCvData();
-                            if (cvData) {
-                              console.log("CV Data being sent:", JSON.stringify(cvData, null, 2));
+                            // Create new Vacancy
+                            const vacancyData = createVacancyData();
+                            if (vacancyData) {
+                              console.log("Vacancy Data being sent:", JSON.stringify(vacancyData, null, 2));
                               console.log("Form data:", formData);
                               console.log("All steps data:", allStepsData);
-                              await cvService.createCvData(cvData);
-                              toast({ description: t("cvCreated") });
-                              router.push("/cv");
+                              await vacancyService.createVacancyData(vacancyData);
+                              toast({ description: t("vacancyCreated") });
+                              router.push("/vacancy");
                             }
                           }
                         } catch (error) {
-                          console.error("CV operation error:", error);
+                          console.error("Vacancy operation error:", error);
                           toast({ 
                             variant: "destructive",
-                            description: isEditMode ? t("cvUpdateError") : t("cvCreateError") 
+                            description: isEditMode ? t("vacancyUpdateError") : t("vacancyCreateError") 
                           });
                         } finally {
                           setIsLoading(false);

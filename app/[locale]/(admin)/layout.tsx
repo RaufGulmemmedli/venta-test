@@ -9,7 +9,7 @@ export default function AdminLayout({
 }) {
   return (
     <div className="flex h-screen bg-background">
-  <aside className="hidden w-64 overflow-y-auto border-r md:block bg-[#ffe8f3]">
+  <aside className="hidden w-64 overflow-y-auto border-r md:block ">
         <AdminSidebar />
       </aside>
       <div className="flex flex-col flex-1 overflow-hidden">

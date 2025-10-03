@@ -24,7 +24,7 @@ const CreateSectionModal: React.FC<CreateSectionModalProps> = ({ onClose, onSave
     const [pendingStepId, setPendingStepId] = useState<string | null>(null) // NEW: keep step id until options load
     // accept both spellings but normalize to 'vakansia'
     const [typeValue, setTypeValue] = useState<'' | 'cv' | 'vakansia' | 'vakansiya'>('')
-    const [isChangeable, setIsChangeable] = useState<boolean>(true)
+    const [isChangeable, setIsChangeable] = useState<boolean>(false)
 
     const [activelanguage, setActivelanguage] = useState<'az' | 'en' | 'ru'>("az")
     const [titles, setTitles] = useState<Record<'az'|'en'|'ru', string>>({ az: '', en: '', ru: '' })
@@ -59,21 +59,18 @@ const CreateSectionModal: React.FC<CreateSectionModalProps> = ({ onClose, onSave
                     if (ignore) return
                     const section = data?.responseValue ?? data
 
-                    // Map step.type (1/2) -> UI typeValue
                     const stepTypeNum = Number(section?.step?.type)
                     if (stepTypeNum === 1) setTypeValue('cv')
                     else if (stepTypeNum === 2) setTypeValue('vakansia')
                     else setTypeValue('')
 
-                    // Store step id; set directly if steps already loaded, else keep pending
                     const sid = section?.step?.id != null ? String(section.step.id) : ''
                     if (sid) {
-                        // if current steps list already contains it, assign immediately
                         const exists = Array.isArray(steps) && (steps as any[]).some(s => String(s.id) === sid)
                         if (exists) setStepValue(sid)
                         else {
                             setPendingStepId(sid)
-                            setStepValue(sid) // still show selected value even if option not yet in list
+                            setStepValue(sid) 
                         }
                     }
 
@@ -81,8 +78,7 @@ const CreateSectionModal: React.FC<CreateSectionModalProps> = ({ onClose, onSave
                         setIsChangeable(section.isChangeable)
                     }
 
-                    // Handle new translation format - translation is an array
-                    const trList = Array.isArray(section?.translation)
+                   const trList = Array.isArray(section?.translation)
                         ? section.translation
                         : Array.isArray(section?.translations)
                             ? section.translations
@@ -108,13 +104,12 @@ const CreateSectionModal: React.FC<CreateSectionModalProps> = ({ onClose, onSave
             setPendingStepId(null)
             setTitles({ az: '', en: '', ru: '' })
             setDescriptions({ az: '', en: '', ru: '' })
-            setIsChangeable(true)
+            setIsChangeable(false)
             setTypeValue('')
         }
         return () => { ignore = true }
     }, [isEdit, id])
 
-    // When steps finish loading, if we had a pendingStepId ensure the option list now contains it
     useEffect(() => {
         if (pendingStepId && Array.isArray(steps) && steps.length) {
             const exists = (steps as any[]).some(s => String(s.id) === pendingStepId)
@@ -138,12 +133,10 @@ const CreateSectionModal: React.FC<CreateSectionModalProps> = ({ onClose, onSave
 
         if (translations.length === 0) return
 
-        // Create payload (POST hələ də translations qəbul edir)
         const createPayload = { stepId: Number(stepValue), isActive: true, isChangeable, translations }
 
         try {
             if (isEdit && id) {
-                // Edit üçün service içində sectionSets formatına çevriləcək
                 await editSection.mutateAsync({ id, data: { ...createPayload } })
             } else {
                 await createSection.mutateAsync(createPayload)
@@ -171,7 +164,6 @@ const CreateSectionModal: React.FC<CreateSectionModalProps> = ({ onClose, onSave
                                 value={typeValue === 'vakansiya' ? 'vakansia' : typeValue}
                                 onChange={(val) => {
                                     setTypeValue(val as any)
-                                    // reset step when type changes (only if not in edit with same type)
                                     if (!isEdit) {
                                         setStepValue('')
                                         setPendingStepId(null)
@@ -198,7 +190,6 @@ const CreateSectionModal: React.FC<CreateSectionModalProps> = ({ onClose, onSave
                                         const label = (az?.title || en?.title || trs[0]?.title || step?.moduleName || step?.name || `#${step?.id}`) as string
                                         return { value: String(step.id), label }
                                     })
-                                    // Ensure selected value present
                                     if (stepValue && !opts.find(o => o.value === stepValue)) {
                                         opts.push({ value: stepValue, label: `#${stepValue}` })
                                     }
@@ -216,7 +207,6 @@ const CreateSectionModal: React.FC<CreateSectionModalProps> = ({ onClose, onSave
                         </div>
                     </div>
 
-                    {/* NEW isChangeable checkbox */}
                     <div className="flex items-center gap-2 pt-2">
                         <input
                             id="isChangeable"
@@ -226,7 +216,7 @@ const CreateSectionModal: React.FC<CreateSectionModalProps> = ({ onClose, onSave
                             onChange={(e) => setIsChangeable(e.target.checked)}
                         />
                         <label htmlFor="isChangeable" className="text-sm font-medium cursor-pointer">
-                            {t('isChangeable') || 'Is Changeable'}
+                            { 'Artırılabilir' /*t('isChangeable')*/ }
                         </label>
                     </div>
 

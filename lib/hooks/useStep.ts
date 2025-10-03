@@ -28,10 +28,10 @@ export function useSteps(params?: StepsParams, options?: any) {
     })
 }
 
-export function useAllSteps(type?: 'cv' | 'vakansiya') {
+export function useAllSteps(type?: 'cv' | 'vakansiya', stepType?: number) {
     return useQuery({
-        queryKey: [...stepKeys.lists(), 'all', type],
-        queryFn: () => stepService.getAllSteps(type),
+        queryKey: [...stepKeys.lists(), 'all', type, stepType],
+        queryFn: () => stepService.getAllSteps(type, stepType),
     })
 }
 
