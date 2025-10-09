@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAllSteps } from "@/lib/hooks/useStep"
 import { useToast } from "@/components/ui/use-toast"
-import { ChevronLeft, ChevronRight, CheckCircle, Camera, Upload, X, RotateCcw, Video, Play, Square } from "lucide-react"
+import { ChevronLeft, ChevronRight, CheckCircle, Camera, Upload, X, RotateCcw, Video, Play, Square, Loader2 } from "lucide-react"
+import { cvService } from "@/lib/services/cvServices"
+import AlertDialogComponent from "@/components/AlertDiolog/AlertDiolog"
 
 interface FormData {
   [key: string]: any;
@@ -16,6 +18,7 @@ interface StaticStepButton {
   id: string;
   label: string;
   type: 'image' | 'video';
+  fileType: number; // ResumeFileType enum value
 }
 
 /** SINGLE MODAL IMPLEMENTATION (auto-close problemi həll) */
@@ -50,8 +53,9 @@ export default function StaticStepPage() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
-  const { data: allSteps = [] } = useAllSteps('cv')
-  const staticStepNumber = allSteps.length > 0 ? allSteps[allSteps.length - 1].sortOrder + 1 : 1
+  const { data: allStepsRaw = [] } = useAllSteps('cv', 1)
+  // Filter only active steps
+  const allSteps = allStepsRaw.filter(step => step.isActive === true)
 
   const [formData, setFormData] = useState<FormData>({})
   const [activeUpload, setActiveUpload] = useState<StaticStepButton | null>(null)
@@ -68,16 +72,68 @@ export default function StaticStepPage() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([])
   const [savedMedia, setSavedMedia] = useState<Record<string, { images: string[], videos: string[], files: File[] }>>({})
+  const [existingMedia, setExistingMedia] = useState<any[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingMedia, setIsLoadingMedia] = useState(false)
+  const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [mediaToDelete, setMediaToDelete] = useState<{ buttonId: string; type: 'image' | 'video' | 'file'; index: number } | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null)
 
   const fromStep = searchParams.get('fromStep')
+  const resumeId = searchParams.get('resumeId')
 
   const completedSteps = React.useMemo(() => {
     const completed = new Set<number>()
     for (let i = 0; i < allSteps.length; i++) completed.add(i)
     return completed
   }, [allSteps.length])
+
+  // Load existing media when resumeId is present
+  useEffect(() => {
+    const loadExistingMedia = async () => {
+      if (resumeId) {
+        setIsLoadingMedia(true)
+        try {
+          const response = await cvService.getCvMedia(Number(resumeId))
+          const mediaFiles = response?.responseValue || []
+          setExistingMedia(mediaFiles)
+          
+          // Group media by type for display
+          const groupedMedia: Record<string, { images: string[], videos: string[], files: File[] }> = {}
+          
+          mediaFiles.forEach((media: any) => {
+            const buttonId = `button-${media.fileType}` // Map fileType to button ID (1-5)
+            if (!groupedMedia[buttonId]) {
+              groupedMedia[buttonId] = { images: [], videos: [], files: [] }
+            }
+            
+            // ResumeFileType: 1=CandidatesImage, 2=CandidatesVideo, 3=CandidatesLicense, 4=CandidatesCertificate, 5=CandidatesTrainingCertificate
+            if (media.fileType === 2) {
+              // Video
+              groupedMedia[buttonId].videos.push(media.fileUrl)
+            } else {
+              // All other types are images (1, 3, 4, 5)
+              groupedMedia[buttonId].images.push(media.fileUrl)
+            }
+          })
+          
+          setSavedMedia(groupedMedia)
+        } catch (error) {
+          console.error('Error loading media:', error)
+          toast({ 
+            variant: "destructive", 
+            description: "Media yüklənə bilmədi" 
+          })
+        } finally {
+          setIsLoadingMedia(false)
+        }
+      }
+    }
+
+    loadExistingMedia()
+  }, [resumeId])
 
   const updateFormData = (fieldId: string, value: any) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }))
@@ -233,9 +289,12 @@ export default function StaticStepPage() {
   }
 
   const handleFileUploadClick = () => {
+    if (!activeUpload) return
+    
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = activeUpload?.type === 'video' ? 'video/*' : 'image/*,.pdf,.doc,.docx'
+    // Set accept based on button type
+    input.accept = activeUpload.type === 'video' ? 'video/*' : 'image/*,.pdf,.doc,.docx'
     input.multiple = true
     input.onchange = e => {
       const files = Array.from((e.target as HTMLInputElement).files || [])
@@ -318,15 +377,66 @@ export default function StaticStepPage() {
     })
   }
 
-  const removeSavedMedia = (buttonId: string, type: 'image' | 'video' | 'file', index: number) => {
+  const handleDeleteClick = (buttonId: string, type: 'image' | 'video' | 'file', index: number) => {
+    setMediaToDelete({ buttonId, type, index })
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!mediaToDelete) return
+    
+    const { buttonId, type, index } = mediaToDelete
+    await removeSavedMedia(buttonId, type, index)
+    
+    setDeleteConfirmOpen(false)
+    setMediaToDelete(null)
+  }
+
+  const removeSavedMedia = async (buttonId: string, type: 'image' | 'video' | 'file', index: number) => {
+    const current = savedMedia[buttonId]
+    if (!current) return
+
+    let mediaUrl = ''
+    if (type === 'image') {
+      mediaUrl = current.images[index]
+    } else if (type === 'video') {
+      mediaUrl = current.videos[index]
+    }
+
+    // Check if this is an existing media (URL from server)
+    const isExistingMedia = mediaUrl && (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://'))
+    
+    if (isExistingMedia && resumeId) {
+      // Find the media ID from existingMedia
+      const mediaItem = existingMedia.find(m => m.fileUrl === mediaUrl)
+      if (mediaItem) {
+        try {
+          await cvService.deleteResumeFile(mediaItem.id)
+          toast({ description: "Media uğurla silindi" })
+          
+          // Remove from existingMedia
+          setExistingMedia(prev => prev.filter(m => m.id !== mediaItem.id))
+        } catch (error) {
+          console.error('Error deleting media:', error)
+          toast({ 
+            variant: "destructive", 
+            description: "Media silinə bilmədi" 
+          })
+          return
+        }
+      }
+    }
+
+    // Remove from local state
     setSavedMedia(prev => {
-      const current = prev[buttonId] || { images: [], videos: [], files: [] }
-      const updated = { ...current }
+      const updated = { ...prev[buttonId] }
       
       if (type === 'image') {
         updated.images = current.images.filter((_, i) => i !== index)
       } else if (type === 'video') {
-        URL.revokeObjectURL(current.videos[index])
+        if (!isExistingMedia) {
+          URL.revokeObjectURL(current.videos[index])
+        }
         updated.videos = current.videos.filter((_, i) => i !== index)
       } else if (type === 'file') {
         updated.files = current.files.filter((_, i) => i !== index)
@@ -343,16 +453,142 @@ export default function StaticStepPage() {
   }
 
   const goToStep = (stepIndex: number) => {
-    router.push(`/cv-create?step=${stepIndex}`)
+    if (resumeId) {
+      router.push(`/cv-create?step=${stepIndex}&editId=${resumeId}`)
+    } else {
+      router.push(`/cv-create?step=${stepIndex}`)
+    }
   }
 
+  const goToLastStep = () => {
+    const lastStepIndex = allSteps.length - 1
+    if (resumeId) {
+      router.push(`/cv-create?step=${lastStepIndex}&editId=${resumeId}`)
+    } else {
+      router.push(`/cv-create?step=${lastStepIndex}`)
+    }
+  }
+
+  // ResumeFileType enum mapping
   const staticStepButtons: StaticStepButton[] = [
-    { id: 'button-1', label: 'Vəsiqənin şəkili', type: 'image' },
-    { id: 'button-2', label: 'Namizədin şəkili', type: 'image' },
-    { id: 'button-5', label: 'Əlavə sertifikatlar', type: 'image' },
-    { id: 'button-6', label: 'Təlim sertifikat şəkili', type: 'image' },
-    { id: 'button-7', label: 'Video çək', type: 'video' }
+    { id: 'button-1', label: 'Namizədin şəkili', type: 'image', fileType: 1 },        
+    { id: 'button-3', label: 'Vəsiqənin şəkili', type: 'image', fileType: 3 },        
+    { id: 'button-4', label: 'Əlavə sertifikatlar', type: 'image', fileType: 4 },     
+    { id: 'button-5', label: 'Təlim sertifikat şəkili', type: 'image', fileType: 5 }, 
+    { id: 'button-2', label: 'Namizədin videosu', type: 'video', fileType: 2 },       
   ]
+
+  // Convert base64 to Blob
+  const base64ToBlob = async (base64: string, mimeType: string): Promise<Blob> => {
+    const response = await fetch(base64)
+    return response.blob()
+  }
+
+  // Convert blob URL to Blob
+  const urlToBlob = async (url: string): Promise<Blob> => {
+    const response = await fetch(url)
+    return response.blob()
+  }
+
+  const handleSubmitMedia = async () => {
+    if (!resumeId) {
+      toast({ 
+        variant: "destructive", 
+        description: "Resume ID tapılmadı. Əvvəlcə CV yaradın." 
+      })
+      return
+    }
+
+    // Check if there's any NEW media to upload (exclude existing URLs)
+    const hasNewMedia = Object.values(savedMedia).some(media => {
+      const hasNewImages = media.images.some(img => 
+        !img.startsWith('http://') && !img.startsWith('https://')
+      )
+      const hasNewVideos = media.videos.some(vid => 
+        !vid.startsWith('http://') && !vid.startsWith('https://')
+      )
+      return hasNewImages || hasNewVideos || media.files.length > 0
+    })
+
+    if (!hasNewMedia) {
+      toast({ 
+        description: "CV uğurla tamamlandı!" 
+      })
+      router.push("/cv")
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const allFiles: { file: File | Blob; fileType: number }[] = []
+
+      // Process all saved media with correct fileType from button definition
+      for (const [buttonId, media] of Object.entries(savedMedia)) {
+        // Find the button to get its fileType
+        const button = staticStepButtons.find(btn => btn.id === buttonId)
+        if (!button) continue
+
+        const fileType = button.fileType
+
+        // Process images
+        for (const imageBase64 of media.images) {
+          // Check if it's a URL (existing media) or base64 (new capture)
+          if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
+            // Skip existing media, don't re-upload
+            continue
+          }
+          const blob = await base64ToBlob(imageBase64, 'image/jpeg')
+          const file = new File([blob], `image-${Date.now()}.jpg`, { type: 'image/jpeg' })
+          allFiles.push({ file, fileType })
+        }
+
+        // Process videos
+        for (const videoUrl of media.videos) {
+          // Check if it's an existing media URL
+          if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
+            // Skip existing media, don't re-upload
+            continue
+          }
+          const blob = await urlToBlob(videoUrl)
+          const file = new File([blob], `video-${Date.now()}.webm`, { type: 'video/webm' })
+          allFiles.push({ file, fileType })
+        }
+
+        // Process uploaded files
+        for (const uploadedFile of media.files) {
+          allFiles.push({ file: uploadedFile, fileType })
+        }
+      }
+
+      // Upload new files (create endpoint can handle both new and existing resumes)
+      if (allFiles.length > 0) {
+        console.log(`Uploading ${allFiles.length} media files for Resume ID: ${resumeId}`)
+        await cvService.createCvMedia(Number(resumeId), allFiles)
+        toast({ 
+          description: existingMedia.length > 0 
+            ? `${allFiles.length} yeni media faylı əlavə edildi!` 
+            : `${allFiles.length} media faylı uğurla yükləndi!` 
+        })
+      } else {
+        // No new files to upload
+        toast({ 
+          description: "CV uğurla tamamlandı!" 
+        })
+      }
+
+      // Navigate to CV list
+      router.push("/cv")
+    } catch (error) {
+      console.error('Media upload error:', error)
+      toast({ 
+        variant: "destructive", 
+        description: "Media yükləmə zamanı xəta baş verdi." 
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   React.useEffect(() => {
     return () => { try { stopCamera() } catch {} }
@@ -397,13 +633,13 @@ export default function StaticStepPage() {
                   )
                 })}
 
+                {/* Media Step - Without Number, only icon */}
                 <div className="flex items-center">
                   <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 bg-red-500 border-red-500 text-white">
-                    <span className="text-sm font-medium">{staticStepNumber}</span>
+                    <Camera className="w-5 h-5" />
                   </div>
                   <span className="ml-2 text-sm font-medium text-red-600">
                     Media
-                    {/* {staticStepNumber} */}
                   </span>
                 </div>
               </div>
@@ -415,6 +651,14 @@ export default function StaticStepPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isLoadingMedia ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Media yüklənir...</p>
+            </div>
+          </div>
+        ) : (
         <div className="space-y-8">
           {/* Media Summary Card */}
           {Object.keys(savedMedia).length > 0 && (
@@ -517,7 +761,7 @@ export default function StaticStepPage() {
                                       <Button
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          removeSavedMedia(button.id, 'image', idx)
+                                          handleDeleteClick(button.id, 'image', idx)
                                         }}
                                         size="sm"
                                         variant="destructive"
@@ -540,21 +784,27 @@ export default function StaticStepPage() {
                                 </h4>
                                 <div className="grid grid-cols-2 gap-2">
                                   {savedMedia[button.id].videos.map((video, idx) => (
-                                    <div key={idx} className="relative group">
+                                    <div key={idx} className="relative group cursor-pointer">
                                       <video 
                                         src={video} 
                                         className="w-full h-20 object-cover rounded-lg border-2 border-white shadow-sm"
                                         preload="metadata"
+                                        onClick={() => setSelectedVideoUrl(video)}
                                       />
                                       <Button
-                                        onClick={() => removeSavedMedia(button.id, 'video', idx)}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteClick(button.id, 'video', idx)
+                                        }}
                                         size="sm"
                                         variant="destructive"
                                         className="absolute -top-1 -right-1 h-5 w-5 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                                       >
                                         <X className="h-3 w-3" />
                                       </Button>
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                                      <div 
+                                        className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg pointer-events-none"
+                                      >
                                         <Play className="w-8 h-8 text-white opacity-80" />
                                       </div>
                                     </div>
@@ -575,7 +825,7 @@ export default function StaticStepPage() {
                                     <div key={idx} className="flex items-center justify-between bg-white rounded px-2 py-1 text-xs border">
                                       <span className="truncate flex-1">{file.name}</span>
                                       <Button
-                                        onClick={() => removeSavedMedia(button.id, 'file', idx)}
+                                        onClick={() => handleDeleteClick(button.id, 'file', idx)}
                                         size="sm"
                                         variant="ghost"
                                         className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-600"
@@ -600,25 +850,26 @@ export default function StaticStepPage() {
           <div className="flex justify-between items-center pt-6">
             <Button
               variant="outline"
-              onClick={() => goToStep(allSteps.length - 1)}
+              onClick={goToLastStep}
               className="flex items-center space-x-2"
+              disabled={isSubmitting}
             >
               <ChevronLeft className="w-4 h-4" />
               <span>Əvvəlki</span>
             </Button>
 
             <Button
-              onClick={() => {
-                toast({ description: "CV uğurla yaradıldı!" })
-                router.push("/cv")
-              }}
+              onClick={handleSubmitMedia}
+              disabled={isSubmitting}
               style={{ backgroundColor: "green" }}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
             >
-              Tamamla
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSubmitting ? "Yüklənir..." : "Tamamla"}
             </Button>
           </div>
         </div>
+        )}
       </div>
 
       {/* Modallar */}
@@ -890,7 +1141,7 @@ export default function StaticStepPage() {
                 size="sm"
                 className="absolute top-6 right-6 h-10 w-10 p-0 bg-white/20 text-white hover:bg-white/30 z-10 rounded-full"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5"style={{ color: "red" }} />
               </Button>
               
               {/* Navigation Buttons */}
@@ -929,6 +1180,48 @@ export default function StaticStepPage() {
           </div>
         )
       })()}
+
+      {/* Video Preview Modal */}
+      {selectedVideoUrl && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 backdrop-blur-sm">
+          <div className="relative max-w-5xl max-h-[90vh] w-full p-4">
+            <Button
+              onClick={() => setSelectedVideoUrl(null)}
+              variant="ghost"
+              size="sm"
+              className="absolute top-6 right-6 h-10 w-10 p-0 bg-white/20 text-white hover:bg-white/30 z-10 rounded-full"
+            >
+              <X className="h-5 w-5" style={{ color: "red" }} />
+            </Button>
+            
+            <video 
+              src={selectedVideoUrl}
+              controls
+              autoPlay
+              className="max-w-full max-h-full rounded-xl mx-auto shadow-2xl"
+              style={{ maxHeight: '80vh' }}
+            />
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+              <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+                Video
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialogComponent
+        open={deleteConfirmOpen}
+        setOpen={setDeleteConfirmOpen}
+        title="Media silmək"
+        description="Bu medianı silmək istədiyinizdən əminsiniz? Bu əməliyyat geri qaytarıla bilməz."
+        onCancel={() => {
+          setDeleteConfirmOpen(false)
+          setMediaToDelete(null)
+        }}
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }

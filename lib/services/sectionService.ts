@@ -39,6 +39,9 @@ export interface SectionI18n {
     stepName?: string | null
     isActive: boolean
     sortOrder: number
+    // Single translation object from API
+    translation?: { id?: number; language: string; title: string; description: string | null }
+    // Array of translations for backwards compatibility
     translations?: { language: string; title: string; description: string }[]
     // NEW (for get-by-id usage in UI)
     isChangeable?: boolean
@@ -96,6 +99,8 @@ export const sectionService = {
                 isActive: it.isActive,
                 sortOrder: it.sortOrder ?? 0,
                 isChangeable: it.isChangeable,
+                // Preserve the original translation object for direct access
+                translation: it.translation,
                 translations: Array.isArray(it.translation)
                     ? it.translation.map((tr: any) => ({
                         language: tr.language ?? '',

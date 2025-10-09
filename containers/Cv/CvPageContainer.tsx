@@ -17,7 +17,7 @@ export default function CvPageContainer() {
     const t = useTranslations("cvPage")
     const tc = useTranslations("common")
     const router = useRouter()
-    
+
     const [pageNumber, setPageNumber] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [searchInput, setSearchInput] = useState("")
@@ -27,6 +27,9 @@ export default function CvPageContainer() {
     const [cvToDelete, setCvToDelete] = useState<number | null>(null)
     const [filterSidebarOpen, setFilterSidebarOpen] = useState(false)
     const [attributeFilters, setAttributeFilters] = useState<{ id: number; attributeValueIds: number[] }[]>([])
+
+    // Sabit Actions sütun eni
+    const ACTIONS_COL_WIDTH = "w-[132px] min-w-[132px] max-w-[132px]"
 
     React.useEffect(() => {
         const h = setTimeout(() => setSearch(searchInput.trim()), 500)
@@ -59,9 +62,9 @@ export default function CvPageContainer() {
     // Get all unique attribute names from all CVs
     const getAllAttributeNames = (cvData: any) => {
         if (!cvData?.items) return []
-        
+
         const attributeNames = new Set<string>()
-        
+
         cvData.items.forEach((cv: any) => {
             cv.steps?.forEach((step: any) => {
                 step.sections?.forEach((section: any) => {
@@ -73,7 +76,7 @@ export default function CvPageContainer() {
                 })
             })
         })
-        
+
         return Array.from(attributeNames).sort()
     }
 
@@ -85,7 +88,7 @@ export default function CvPageContainer() {
                     for (const attr of section.attributes || []) {
                         if (attr.name === attributeName && attr.values && attr.values.length > 0) {
                             const value = attr.values[0]
-                            
+
                             // Handle different API response structures
                             if (value?.set) {
                                 const set = value.set
@@ -159,7 +162,7 @@ export default function CvPageContainer() {
                     <Plus className="mr-2 h-4 w-4" /> {t("create")}
                 </Button>
             </div>
-         
+
             {/* Search and Filters */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="relative w-full sm:w-1/2 lg:w-1/3">
@@ -185,9 +188,9 @@ export default function CvPageContainer() {
                             </div>
                         </div>
                     )}
-                 
+
                 </div>
-                <div className="flex gap-2 w-56" style={{height: "40px"}}>
+                <div className="flex gap-2 w-56" style={{ height: "40px" }}>
                     <select
                         className="w-full border rounded px-2 py-1 text-sm"
                         value={statusFilter}
@@ -203,28 +206,26 @@ export default function CvPageContainer() {
                         <Filter className="mr-2 h-4 w-4" />
                         {t("filter")}
                     </Button>
-                    {attributeFilters.length > 0 && (
-                        <span className="text-sm text-muted-foreground">
-                            ({attributeFilters.reduce((sum, f) => sum + f.attributeValueIds.length, 0)} {t("filters")})
-                        </span>
-                    )}
                 </div>
             </div>
 
-            {/* CV Table */}
             <div className="border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto relative">
                     <Table className="text-sm w-full min-w-max">
                         <TableHeader>
-                            <TableRow className="bg-gray-50 hover:bg-gray-50">
-                                <TableHead className="px-3 py-2 text-lg sticky left-0 bg-gray-50 z-10">ID</TableHead>
+                            <TableRow className="bg-gray-50 hover:bg-gray-50 [isolation:isolate]">
+                                <TableHead className="px-3 py-2 text-lg sticky left-0 z-30 bg-gray-50 dark:bg-gray-900">
+                                    ID
+                                </TableHead>
                                 {getAllAttributeNames(cvData).map((attrName) => (
                                     <TableHead key={attrName} className="px-3 py-2 text-lg whitespace-nowrap">
                                         {attrName}
                                     </TableHead>
                                 ))}
-                               
-                                <TableHead className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur z-10">
+
+                                <TableHead 
+                                    className={`px-3 py-2 text-right sticky right-0 z-40 border-l bg-gray-50 dark:bg-gray-900 supports-[backdrop-filter]:bg-gray-50/80 supports-[backdrop-filter]:backdrop-blur ${ACTIONS_COL_WIDTH}`}
+                                >
                                     Actions
                                 </TableHead>
                             </TableRow>
@@ -246,44 +247,33 @@ export default function CvPageContainer() {
                                 </TableRow>
                             )}
                             {!isLoading && !isError && cvData?.items.map((cv: any) => (
-                                <TableRow key={cv.resumeId}>
-                                    <TableCell className="px-3 py-4 text-base sticky left-0 bg-white z-10">{cv.resumeId}</TableCell>
+                                <TableRow 
+                                    key={cv.resumeId}
+                                    className="group cursor-pointer hover:bg-gray-50 transition-colors [isolation:isolate]"
+                                    onClick={() => router.push(`/cv/view?id=${cv.resumeId}`)}
+                                >
+                                    <TableCell className="px-3 py-4 text-base sticky left-0 z-20 bg-white dark:bg-background group-hover:bg-gray-50 transition-colors">
+                                        {cv.resumeId}
+                                    </TableCell>
                                     {getAllAttributeNames(cvData).map((attrName) => (
                                         <TableCell key={attrName} className="px-3 py-4 text-base whitespace-nowrap">
                                             {getAttributeValue(cv, attrName)}
                                         </TableCell>
                                     ))}
-                                    {/* <TableCell className="px-3 py-4 text-base">
-                                        <div className="max-w-xs truncate" title={getStepTitles(cv.steps)}>
-                                            {getStepTitles(cv.steps)}
-                                        </div>
-                                    </TableCell> */}
-                                    {/* <TableCell className="px-3 py-4 text-base">{getSectionCount(cv.steps)}</TableCell> */}
-                                    {/* <TableCell className="px-3 py-4 text-base">
-                                        <span className={`px-2 py-1 rounded-full text-xs ${
-                                            cv.steps.length > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                        }`}>
-                                            {cv.steps.length > 0 ? 'Aktiv' : 'Passiv'}
-                                        </span>
-                                    </TableCell> */}
-                                    <TableCell className="px-3 py-2 text-right sticky right-0 bg-white/90 backdrop-blur">
-                                        <div className="inline-flex gap-2">
+                                    <TableCell 
+                                        className={`px-3 py-2 text-right sticky right-0 bg-white dark:bg-background group-hover:bg-gray-50 border-l backdrop-blur supports-[backdrop-filter]:bg-white/85 z-30 transition-colors ${ACTIONS_COL_WIDTH}`}
+                                    >
+                                        <div className="inline-flex gap-2" onClick={(e) => e.stopPropagation()}>
                                             <Eye
-                                                className="w-5 h-5 cursor-pointer text-blue-600"
-                                                onClick={() => {
-                                                    router.push(`/cv/view?id=${cv.resumeId}`)
-                                                }}
+                                                className="w-5 h-5 cursor-pointer text-blue-600 hover:text-blue-800 transition-colors"
+                                                onClick={() => router.push(`/cv/view?id=${cv.resumeId}`)}
                                             />
                                             <Edit
-                                                className="w-5 h-5 cursor-pointer text-green-600"
-                                                onClick={() => {
-                                                    router.push(`/cv-create?editId=${cv.resumeId}`)
-                                                }}
+                                                className="w-5 h-5 cursor-pointer text-green-600 hover:text-green-800 transition-colors"
+                                                onClick={() => router.push(`/cv-create?editId=${cv.resumeId}`)}
                                             />
                                             <Trash
-                                                className={`w-5 h-5 cursor-pointer text-red-600 hover:text-red-800 transition-colors ${
-                                                    deleteCv.isPending ? 'opacity-50 cursor-not-allowed' : ''
-                                                }`}
+                                                className={`w-5 h-5 cursor-pointer text-red-600 hover:text-red-800 transition-colors ${deleteCv.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 onClick={() => !deleteCv.isPending && handleDeleteCv(cv.resumeId)}
                                             />
                                         </div>

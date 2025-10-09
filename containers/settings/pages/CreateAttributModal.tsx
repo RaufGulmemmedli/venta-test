@@ -50,29 +50,38 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
     const requiresValues = attributeType === "5" || attributeType === "6"
 
     // Fetch CV sections (Type 1)
-    const { data: cvSectionsList = [], isLoading: cvSectionsLoading } = useSections(
+    const { data: cvSectionsResponse, isLoading: cvSectionsLoading } = useSections(
         { pageNumber: 1, pageSize: 1000, isActive: true, type: '1' } as any,
         { keepPreviousData: true, staleTime: 60_000 }
     )
 
     // Fetch Vacancy sections (Type 2)
-    const { data: vacancySectionsList = [], isLoading: vacancySectionsLoading } = useSections(
+    const { data: vacancySectionsResponse, isLoading: vacancySectionsLoading } = useSections(
         { pageNumber: 1, pageSize: 1000, isActive: true, type: '2' } as any,
         { keepPreviousData: true, staleTime: 60_000 }
     )
 
+    // Extract items from new API format (responseValue.items)
+    const cvSectionsList = (cvSectionsResponse as any)?.responseValue?.items || 
+                          (cvSectionsResponse as any)?.items || 
+                          (Array.isArray(cvSectionsResponse) ? cvSectionsResponse : [])
+    
+    const vacancySectionsList = (vacancySectionsResponse as any)?.responseValue?.items || 
+                               (vacancySectionsResponse as any)?.items || 
+                               (Array.isArray(vacancySectionsResponse) ? vacancySectionsResponse : [])
+
     const cvSectionsOptions = (Array.isArray(cvSectionsList) ? cvSectionsList : []).map((sec: any) => {
-        const trs = Array.isArray(sec?.translations) ? sec.translations : []
-        const az = trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').toLowerCase() === 'az')
-        const en = trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').toLowerCase() === 'en')
-        return { id: sec.id, label: az?.title || en?.title || trs[0]?.title || sec?.stepName || `#${sec?.id}` }
+        // New API format has a single 'translation' object instead of 'translations' array
+        const translation = sec?.translation
+        const title = translation?.title || sec?.title || sec?.stepName || `#${sec?.id}`
+        return { id: Number(sec.id), label: title }
     })
 
     const vacancySectionsOptions = (Array.isArray(vacancySectionsList) ? vacancySectionsList : []).map((sec: any) => {
-        const trs = Array.isArray(sec?.translations) ? sec.translations : []
-        const az = trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').toLowerCase() === 'az')
-        const en = trs.find((tr: any) => String(tr?.language ?? tr?.lang ?? '').toLowerCase() === 'en')
-        return { id: sec.id, label: az?.title || en?.title || trs[0]?.title || sec?.stepName || `#${sec?.id}` }
+        // New API format has a single 'translation' object instead of 'translations' array
+        const translation = sec?.translation
+        const title = translation?.title || sec?.title || sec?.stepName || `#${sec?.id}`
+        return { id: Number(sec.id), label: title }
     })
 
     // Load attribute when editing
@@ -84,9 +93,7 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
         // First, load the attribute data
         attributService.getIdAttributs(id).then((resp: any) => {
             if (!active) return
-            console.log('Attribute API Response:', resp)
             const data = resp?.responseValue ?? resp?.response ?? resp?.attribute ?? resp
-            console.log('Processed Attribute Data:', data)
             if (!data) return
 
             // Set attribute type
@@ -103,9 +110,10 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
             })
 
             // Handle translations from new API format
-            const arr = Array.isArray(data.attributeSets) ? data.attributeSets : 
+            // Check both translations and attributeSets
+            const arr = Array.isArray(data.translations) ? data.translations : 
+                       Array.isArray(data.attributeSets) ? data.attributeSets : 
                        Array.isArray(data.setCreateAttributeRequest) ? data.setCreateAttributeRequest : []
-            console.log('Translations array:', arr)
             const titles: Record<string, string> = {}
             const ids: Record<string, number | undefined> = {}
 
@@ -116,43 +124,36 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
                 if (tr?.id != null) ids[lang] = tr.id
             })
 
-            console.log('Processed titles:', titles)
-            console.log('Processed ids:', ids)
-
             setInputTitleLanguages(titles)
             setTitleIds(ids)
 
-            // Load sectionIds if available
+            // Load sectionIds if available - New format with moduleType
             if (Array.isArray(data.sectionIds) && data.sectionIds.length > 0) {
-                console.log('Section IDs:', data.sectionIds)
-                // We need to determine which sections are CV (type 1) and which are Vacancy (type 2)
-                // Fetch section details for each sectionId
-                Promise.all(
-                    data.sectionIds.map((sectionId: number) =>
-                        sectionService.getIdSections(sectionId).catch(() => null)
-                    )
-                ).then(responses => {
-                    if (!active) return
-                    const cvSecs: number[] = []
-                    const vacancySecs: number[] = []
-                    
-                    responses.forEach((resp, idx) => {
-                        if (!resp) return
-                        const sectionData = resp?.responseValue ?? resp?.response ?? resp
-                        const stepType = Number(sectionData?.step?.type)
-                        const sectionId = data.sectionIds[idx]
+                const cvSecs: number[] = []
+                const vacancySecs: number[] = []
+                
+                data.sectionIds.forEach((item: any) => {
+                    // Check if it's new format (object with sectionId and moduleType)
+                    if (typeof item === 'object' && item !== null) {
+                        const sectionId = Number(item.sectionId) // Ensure it's a number
+                        const moduleType = Number(item.moduleType)
                         
-                        if (stepType === 1) cvSecs.push(sectionId)
-                        else if (stepType === 2) vacancySecs.push(sectionId)
-                    })
-                    
-                    setCvSections(cvSecs)
-                    setVacancySections(vacancySecs)
-                    console.log('Loaded CV sections:', cvSecs)
-                    console.log('Loaded Vacancy sections:', vacancySecs)
-                }).catch(err => {
-                    console.error('Failed to load section data:', err)
+                        if (moduleType === 1) {
+                            cvSecs.push(sectionId)
+                        } else if (moduleType === 2) {
+                            vacancySecs.push(sectionId)
+                        }
+                    } 
+                    // Fallback for old format (just numbers)
+                    else if (typeof item === 'number') {
+                        // For old format, we need to fetch section details
+                        // But we'll skip this for now and handle it separately if needed
+                        console.warn('Old format sectionId detected:', item)
+                    }
                 })
+                
+                setCvSections(cvSecs)
+                setVacancySections(vacancySecs)
             }
         }).finally(() => setLoadingEdit(false))
         return () => { active = false }
@@ -167,7 +168,12 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
         }) as { id?: number; name: string; language: string }[]
 
     const buildEditPayload = () => {
-        const allSectionIds = [...cvSections, ...vacancySections]
+        // Build sectionIds in new format with moduleType
+        const sectionIdsWithModuleType = [
+            ...cvSections.map(sectionId => ({ sectionId, moduleType: 1 })),
+            ...vacancySections.map(sectionId => ({ sectionId, moduleType: 2 }))
+        ]
+        
         return Object.fromEntries(Object.entries({
             id,
             valueType: attributeType ? Number(attributeType) : undefined,
@@ -177,7 +183,7 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
             isPrinted: !!flags.showInPrint,
             isIncluded: !!flags.included,
             isActive: true,
-            sectionIds: allSectionIds.length > 0 ? allSectionIds : undefined,
+            sectionIds: sectionIdsWithModuleType.length > 0 ? sectionIdsWithModuleType : undefined,
             attributeSets: buildTitleTranslations()
         }).filter(([, v]) => v !== undefined))
     }
@@ -193,7 +199,13 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
         const vt = attributeType && /^\d+$/.test(attributeType)
             ? Number(attributeType)
             : valueTypeMap[attributeType] ?? undefined
-        const allSectionIds = [...cvSections, ...vacancySections]
+        
+        // Build sectionIds in new format with moduleType
+        const sectionIdsWithModuleType = [
+            ...cvSections.map(sectionId => ({ sectionId, moduleType: 1 })),
+            ...vacancySections.map(sectionId => ({ sectionId, moduleType: 2 }))
+        ]
+        
         return Object.fromEntries(Object.entries({
             valueType: vt,
             isValuable: !!flags.addable,
@@ -202,7 +214,7 @@ const CreateAttributeModal: React.FC<CreateAttributeModalProps> = ({ onClose, id
             isPrinted: !!flags.showInPrint,
             isIncluded: !!flags.included,
             isActive: true,
-            sectionIds: allSectionIds.length > 0 ? allSectionIds : undefined,
+            sectionIds: sectionIdsWithModuleType.length > 0 ? sectionIdsWithModuleType : undefined,
             attributeSets: trans.length ? trans : undefined
         }).filter(([, v]) => v !== undefined))
     }

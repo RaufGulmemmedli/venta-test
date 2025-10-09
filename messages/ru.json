@@ -109,7 +109,10 @@
     "yes": "Да",
     "no": "Нет",
     "values": "Значения",
-    "instance": "Экземпляр"
+    "instance": "Экземпляр",
+    "attributeValuesUpdated": "Значения атрибутов успешно обновлены",
+    "errorRefreshingData": "Ошибка обновления данных",
+    "fillRequiredFields": "Пожалуйста, заполните все обязательные поля"
   },
   "cvView": {
     "title": "Просмотр CV",
@@ -378,23 +381,50 @@
     "cancel": "Нет"
   },
   "StepReorder": {
-    "title": "Перенос шагов",
+    "title": "Переупорядочить шаги",
     "description": "Перетащите, чтобы изменить порядок шагов.",
     "confirm": "Сохранить",
     "cancel": "Отмена",
     "contextLabel": "Контекст",
-    "context": "Шаг"
+    "context": "Шаг",
+    "hasChanges": "Есть изменения",
+    "loading": "Загрузка...",
+    "empty": "Нет данных",
+    "confirmSaving": "Сохранение..."
   },
   "SectionReorder": {
-    "title": "Перенос разделов",
+    "title": "Переупорядочить разделы",
     "description": "Перетащите, чтобы изменить порядок разделов.",
     "confirm": "Сохранить",
     "cancel": "Отмена",
     "contextLabel": "Контекст",
     "context": "Раздел",
-    "empty": "Нет доступных разделов",
+    "empty": "Нет данных",
     "selectSectionsPlaceholder": "Выберите шаг",
     "loading": "Загрузка...",
-    "noChanges": "Нет изменений"
+    "noChanges": "Нет изменений",
+    "hasChanges": "Есть изменения",
+    "confirmSaving": "Сохранение..."
+  },
+  "AttributReorder": {
+    "title": "Переупорядочить атрибуты",
+    "description": "Перетащите, чтобы изменить порядок атрибутов.",
+    "type": "Тип",
+    "selectType": "Выберите тип",
+    "confirm": "Сохранить",
+    "cancel": "Отмена",
+    "contextLabel": "Раздел",
+    "context": "Атрибут",
+    "empty": "Нет данных",
+    "selectAttributsPlaceholder": "Выберите раздел",
+    "noChanges": "Нет изменений",
+    "selectTypeFirst": "Сначала выберите тип",
+    "loading": "Загрузка...",
+    "hasChanges": "Есть изменения",
+    "noItemsForSection": "Нет атрибутов для этого раздела",
+    "selectSectionPrompt": "Выберите раздел",
+    "confirmSaving": "Сохранение...",
+    "saved": "Успешно обновлено",
+    "saveError": "Произошла ошибка"
   }
 }

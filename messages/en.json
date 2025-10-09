@@ -111,7 +111,10 @@
     "yes": "Yes",
     "no": "No",
     "values": "Values",
-    "instance": "Instance"
+    "instance": "Instance",
+    "attributeValuesUpdated": "Attribute values updated successfully",
+    "errorRefreshingData": "Error refreshing data",
+    "fillRequiredFields": "Please fill in all required fields"
   },
   "cvView": {
     "title": "CV View",
@@ -386,8 +389,11 @@
     "confirm": "Save",
     "cancel": "Cancel",
     "contextLabel": "Context",
-    "context": "Step"
-
+    "context": "Step",
+    "hasChanges": "Changes detected",
+    "loading": "Loading...",
+    "empty": "No data available",
+    "confirmSaving": "Saving..."
   },
   "SectionReorder": {
     "title": "Reorder Sections",
@@ -396,11 +402,33 @@
     "cancel": "Cancel",
     "contextLabel": "Context",
     "context": "Section",
-    "empty": "No sections available",
+    "empty": "No data available",
     "selectSectionsPlaceholder": "Select step",
     "loading": "Loading...",
-    "noChanges": "No changes"
+    "noChanges": "No changes",
+    "hasChanges": "Changes detected",
+    "confirmSaving": "Saving..."
+  },
+  "AttributReorder": {
+    "title": "Reorder Attributes",
+    "description": "Drag to reorder the attributes.",
+    "type": "Type",
+    "selectType": "Select type",
+    "confirm": "Save",
+    "cancel": "Cancel",
+    "contextLabel": "Section",
+    "context": "Attribute",
+    "empty": "No data available",
+    "selectAttributsPlaceholder": "Select section",
+    "noChanges": "No changes",
+    "selectTypeFirst": "Select type first",
+    "loading": "Loading...",
+    "hasChanges": "Changes detected",
+    "noItemsForSection": "No attributes for this section",
+    "selectSectionPrompt": "Select section",
+    "confirmSaving": "Saving...",
+    "saved": "Successfully updated",
+    "saveError": "An error occurred"
   }
-
 
 }

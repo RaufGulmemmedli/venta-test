@@ -314,7 +314,7 @@ export default function AttributContainer() {
         </div>
 
         <Dialog open={open} onOpenChange={(o) => { if (!o) setEditId(null); setOpen(o) }}>
-          <DialogContent className="w-[80vw] max-w-[1200px] h-[70vh] overflow-y-auto">
+          <DialogContent className="w-[80vw] max-w-[1200px] max-h-[70vh] overflow-y-auto">
             <CreateAttributModal
               id={editId ?? undefined}
               onClose={() => { setOpen(false) }}
@@ -357,9 +357,7 @@ export default function AttributContainer() {
           onClose={(updated) => {
             setValuesOpen(false)
             if (updated) {
-              // burada refetch çağırın (məs: queryClient.invalidateQueries([...]))
             } else if (!updated && currentAttributeId && valuesFromCreate) {
-              // Yalnız Create modal-dan gəlmişiksə geri dön
               setOpen(true)
               setEditId(currentAttributeId)
             }

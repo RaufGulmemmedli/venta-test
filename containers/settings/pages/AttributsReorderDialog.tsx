@@ -122,7 +122,7 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
           translationId = a.translation.id
         }
 
-        const translationOrder = a.sortOrder ?? 0
+        const translationOrder = a.order ?? 0
 
         return {
           id: a.id,
@@ -233,14 +233,14 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-6xl h-[85vh] flex flex-col p-6">
-        <DialogHeader className="py-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+      <DialogContent className="w-[90vw] max-w-6xl flex flex-col p-0 gap-0" style={{ width: "80vw", maxHeight: "90vh", height: "90vh" }}>
+        <DialogHeader className="py-4 px-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
           <DialogTitle className="text-xl font-semibold">
             {t("title") || "Atributları Yenidən Sırala"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="py-4 border-b bg-gray-50">
+        <div className="py-4 px-6 border-b bg-gray-50 flex-shrink-0">
           <div className="flex flex-wrap items-center gap-6">
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">{t("type") || "Tip"}:</label>
@@ -297,7 +297,7 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden px-6 py-4">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -306,9 +306,9 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
               </div>
             </div>
           ) : (
-            <div className="h-full overflow-y-auto">
+            <div className="h-full overflow-y-auto overflow-x-hidden pr-2">
               {items.length > 0 ? (
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-4 gap-4 pb-4">
                   {items.map((it, idx) => (
                     <Card
                       key={it.id}
@@ -366,7 +366,7 @@ export default function AttributsReorderDialog({ open, onOpenChange }: Attributs
           )}
         </div>
 
-        <DialogFooter className="py-4 border-t bg-gray-50/50">
+        <DialogFooter className="py-4 px-6 border-t bg-gray-50/50 flex-shrink-0">
           <div className="ml-auto flex items-center gap-4">
             <Button
               className="bg-blue-500 text-white"

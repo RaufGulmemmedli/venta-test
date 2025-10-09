@@ -109,7 +109,10 @@
     "yes": "Bəli",
     "no": "Xeyr",
     "values": "Dəyərlər",
-    "instance": "Nüsxə"
+    "instance": "Nüsxə",
+    "attributeValuesUpdated": "Atribut dəyərləri uğurla yeniləndi",
+    "errorRefreshingData": "Məlumatlar yenilənərkən xəta baş verdi",
+    "fillRequiredFields": "Zəhmət olmasa tələb olunan sahələri doldurun"
   },
   "cvView": {
     "title": "CV Baxış",
@@ -385,7 +388,11 @@
     "confirm": "Yadda saxla",
     "cancel": "Ləğv et",
     "contextLabel": "Step",
-    "context": "Step"
+    "context": "Step",
+    "hasChanges": "Dəyişikliklər var",
+    "loading": "Yüklənir...",
+    "empty": "Məlumat yoxdur",
+    "confirmSaving": "Yadda saxlanır..."
   },
   "SectionReorder": {
     "title": "Bölmələri Yenidən Sırala",
@@ -394,21 +401,23 @@
     "cancel": "Ləğv et",
     "contextLabel": "Step",
     "context": "Bölmə",
-    "empty": "Mövcud bölmə yoxdur",
+    "empty": "Məlumat yoxdur",
     "selectSectionsPlaceholder": "Step seçin",
     "loading": "Yüklənir...",
-    "noChanges": "Dəyişiklik yoxdur"
+    "noChanges": "Dəyişiklik yoxdur",
+    "hasChanges": "Dəyişikliklər var",
+    "confirmSaving": "Yadda saxlanır..."
   },
   "AttributReorder": {
     "title": "Atributları Yenidən Sırala",
     "description": "Atributları yeni sıraya salmaq üçün sürükləyin.",
-   "type": "Tip",
-   "selectType":" Tip seçin",
+    "type": "Tip",
+    "selectType": "Tip seçin",
     "confirm": "Yadda saxla",
     "cancel": "Ləğv et",
     "contextLabel": "Bölmə",
     "context": "Atribut",
-    "empty": "Mövcud atribut yoxdur",
+    "empty": "Məlumat yoxdur",
     "selectAttributsPlaceholder": "Bölmə seçin",
     "noChanges": "Dəyişiklik yoxdur",
     "selectTypeFirst": "Əvvəlcə tip seçin",
@@ -416,8 +425,9 @@
     "hasChanges": "Dəyişikliklər var",
     "noItemsForSection": "Bu bölmə üçün atribut yoxdur",
     "selectSectionPrompt": "Bölmə seçin",
-    "confirmSaving": "Dəyişiklikləri yadda saxlayın?"
-
+    "confirmSaving": "Yadda saxlanır...",
+    "saved": "Uğurla yeniləndi",
+    "saveError": "Xəta baş verdi"
   }
 
 }

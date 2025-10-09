@@ -61,6 +61,20 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
   const [loading, setLoading] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [localNewValues, setLocalNewValues] = useState<Record<string,{ name: string }[]>>({ az: [], en: [], ru: [] })
+
+  // Reset states when modal is closed
+  useEffect(() => {
+    if (!open) {
+      setLocalNewValues({ az: [], en: [], ru: [] })
+      setSearchInput("")
+      setSearchTerm("")
+      setCurrentPage(1)
+      setValueInput("")
+      setEditingValueId(null)
+      setEditingContext(null)
+    }
+  }, [open])
 
   // Debounced search
   useEffect(() => {
@@ -123,42 +137,85 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
           })
         })
         
-        setLanguageValues(byLang)
+        // Just set the API values, don't merge with local yet
         setLangValueRecords(recs)
+        setLanguageValues(byLang)
       })
       .finally(()=>active && setLoading(false))
     return ()=>{ active=false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[open, attributeId, isNewAttribute, currentPage, searchTerm])
 
   const addValueToLanguage = () => {
     const val = valueInput.trim()
     if (!val) return
     
-    // Add only to the current selected language
-    setLanguageValues(prev => ({
-      ...prev,
-      [selectedLanguage]: [...(prev[selectedLanguage] || []), val]
-    }))
+    // Check if input contains comma-separated values (bulk add)
+    const values = val.split(',').map(v => v.trim()).filter(v => v.length > 0)
     
-    // No tempGroupId or attributeValueId for new values - they will be independent
-    setLangValueRecords(prev => ({
+    if (values.length === 0) return
+    
+    // ONLY add to local new values state
+    setLocalNewValues(prev => ({
       ...prev,
-      [selectedLanguage]: [...(prev[selectedLanguage] || []), { name: val, attributeValueId: undefined }]
+      [selectedLanguage]: [...(prev[selectedLanguage] || []), ...values.map(v => ({ name: v }))]
     }))
     
     setValueInput("")
+    
+    // Show success message if multiple values added
+    if (values.length > 1) {
+      toast.success(`${values.length} dəyər əlavə edildi`)
+    }
   }
 
   const removeValueFromLanguage = (lang:string, idx:number) => {
-    // Remove only from the specified language
-    setLanguageValues(p => ({ ...p, [lang]: (p[lang] || []).filter((_, i) => i !== idx) }))
-    setLangValueRecords(p => ({ ...p, [lang]: (p[lang] || []).filter((_, i) => i !== idx) }))
+    // Calculate combined values to get the actual record
+    const apiValues = langValueRecords[lang] || []
+    const localVals = localNewValues[lang] || []
+    const combinedLength = apiValues.length + localVals.length
+    
+    if (idx < apiValues.length) {
+      // It's an API value - remove from langValueRecords
+      setLangValueRecords(p => ({ 
+        ...p, 
+        [lang]: (p[lang] || []).filter((_, i) => i !== idx) 
+      }))
+      setLanguageValues(p => ({ 
+        ...p, 
+        [lang]: (p[lang] || []).filter((_, i) => i !== idx) 
+      }))
+    } else {
+      // It's a local new value - remove from localNewValues
+      const localIdx = idx - apiValues.length
+      setLocalNewValues(prev => ({
+        ...prev,
+        [lang]: (prev[lang] || []).filter((_, i) => i !== localIdx)
+      }))
+    }
   }
 
   const handleStartEditValue = (lang:string, index:number) => {
-    const rec = (langValueRecords[lang]||[])[index]
+    const apiValues = langValueRecords[lang] || []
+    const localVals = localNewValues[lang] || []
+    
+    let rec: { attributeValueId?: number; id?: number; name: string } | undefined
+    
+    if (index < apiValues.length) {
+      // API value
+      rec = apiValues[index]
+    } else {
+      // Local value
+      const localIdx = index - apiValues.length
+      const localVal = localVals[localIdx]
+      if (localVal) {
+        rec = { name: localVal.name, attributeValueId: undefined }
+      }
+    }
+    
     if (!rec) return
-    removeValueFromLanguage(lang,index)
+    
+    removeValueFromLanguage(lang, index)
     setEditingValueId(rec.attributeValueId || rec.id || null)
     setEditingContext({
       attributeValueId: rec.attributeValueId,
@@ -174,16 +231,36 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
       const { attributeValueId, id, language, originalIndex } = editingContext
       const restoreName = valueInput
       
-      // Restore only in the current language
-      setLangValueRecords(prev => {
-        const next = { ...prev }
-        const arr = [...(next[language] || [])]
-        arr.splice(Math.min(originalIndex, arr.length), 0, { attributeValueId, id, name: restoreName })
-        next[language] = arr
+      const apiValues = langValueRecords[language] || []
+      
+      if (originalIndex < apiValues.length) {
+        // It's an API value - restore in langValueRecords
+        setLangValueRecords(prev => {
+          const next = { ...prev }
+          const arr = [...(next[language] || [])]
+          arr.splice(Math.min(originalIndex, arr.length), 0, { attributeValueId, id, name: restoreName })
+          next[language] = arr
+          return next
+        })
         
-        setLanguageValues(vals => ({ ...vals, [language]: arr.map(r => r.name) }))
-        return next
-      })
+        setLanguageValues(prev => {
+          const vals = { ...prev }
+          const arr = [...(vals[language] || [])]
+          arr.splice(Math.min(originalIndex, arr.length), 0, restoreName)
+          vals[language] = arr
+          return vals
+        })
+      } else {
+        // It's a local value - restore in localNewValues
+        const localIdx = originalIndex - apiValues.length
+        setLocalNewValues(prev => {
+          const updated = { ...prev }
+          const arr = [...(updated[language] || [])]
+          arr.splice(Math.min(localIdx, arr.length), 0, { name: restoreName })
+          updated[language] = arr
+          return updated
+        })
+      }
     }
     setEditingValueId(null)
     setEditingContext(null)
@@ -199,20 +276,40 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
     }
     const { language, originalIndex, attributeValueId, id } = editingContext
     
-    // Update value only in current language
-    setLangValueRecords(prev => {
-      const next = { ...prev }
-      const arr = [...(next[language] || [])]
-      arr.splice(Math.min(originalIndex, arr.length), 0, { 
-        attributeValueId, 
-        id, 
-        name: val
+    const apiValues = langValueRecords[language] || []
+    
+    if (originalIndex < apiValues.length) {
+      // It's an API value - update in langValueRecords
+      setLangValueRecords(prev => {
+        const next = { ...prev }
+        const arr = [...(next[language] || [])]
+        arr.splice(Math.min(originalIndex, arr.length), 0, { 
+          attributeValueId, 
+          id, 
+          name: val
+        })
+        next[language] = arr
+        return next
       })
-      next[language] = arr
       
-      setLanguageValues(vals => ({ ...vals, [language]: arr.map(r => r.name) }))
-      return next
-    })
+      setLanguageValues(prev => {
+        const vals = { ...prev }
+        const arr = [...(vals[language] || [])]
+        arr.splice(Math.min(originalIndex, arr.length), 0, val)
+        vals[language] = arr
+        return vals
+      })
+    } else {
+      // It's a local value - update in localNewValues
+      const localIdx = originalIndex - apiValues.length
+      setLocalNewValues(prev => {
+        const updated = { ...prev }
+        const arr = [...(updated[language] || [])]
+        arr.splice(Math.min(localIdx, arr.length), 0, { name: val })
+        updated[language] = arr
+        return updated
+      })
+    }
     
     setEditingValueId(null)
     setEditingContext(null)
@@ -220,44 +317,52 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
   }
 
   const handleDeleteValue = async (lang:string, index:number) => {
-    const rec = (langValueRecords[lang]||[])[index]
-    if (!rec) return
+    const apiValues = langValueRecords[lang] || []
     
-    const deleteKey = rec.id
-    
-    if (!deleteKey) { 
-      // If no ID (new local value), just remove from current language
-      removeValueFromLanguage(lang, index)
-      return 
-    }
-    
-    if (deletingIds.has(deleteKey)) return
-    setDeletingIds(p => new Set(p).add(deleteKey))
-    
-    try {
-      await attributService.deleteAttributValue(deleteKey)
+    if (index < apiValues.length) {
+      // It's an API value
+      const rec = apiValues[index]
+      if (!rec) return
       
-      // Remove only from current language
-      removeValueFromLanguage(lang, index)
+      const deleteKey = rec.id
       
-      if (editingValueId === deleteKey) cancelEditValue()
-    } finally {
-      setDeletingIds(p => { const n = new Set(p); n.delete(deleteKey); return n })
+      if (!deleteKey) { 
+        removeValueFromLanguage(lang, index)
+        return 
+      }
+      
+      if (deletingIds.has(deleteKey)) return
+      setDeletingIds(p => new Set(p).add(deleteKey))
+      
+      try {
+        await attributService.deleteAttributValue(deleteKey)
+        removeValueFromLanguage(lang, index)
+        if (editingValueId === deleteKey) cancelEditValue()
+      } finally {
+        setDeletingIds(p => { const n = new Set(p); n.delete(deleteKey); return n })
+      }
+    } else {
+      // It's a local new value, just remove it
+      removeValueFromLanguage(lang, index)
     }
   }
 
-  // Display values from current language (no local filtering - handled by API)
-  const currentValues = languageValues[selectedLanguage] || []
+  // Display values: combine API values with local new values
+  const currentValues = React.useMemo(() => {
+    const apiVals = languageValues[selectedLanguage] || []
+    const localVals = (localNewValues[selectedLanguage] || []).map(v => v.name)
+    return [...apiVals, ...localVals]
+  }, [languageValues, localNewValues, selectedLanguage])
 
   // YENİ UPDATE: bütün dilləri bir payload-da göndəririk
   const persistChanges = async () => {
     if (!attributeId) { onClose(); return }
     
-    // Validate: Check if all languages have equal number of NEW values
+    // Validate: Check if all languages have equal number of NEW values (from localNewValues)
     const newValueCounts = {
-      az: (langValueRecords.az || []).filter(r => r.attributeValueId === undefined).length,
-      en: (langValueRecords.en || []).filter(r => r.attributeValueId === undefined).length,
-      ru: (langValueRecords.ru || []).filter(r => r.attributeValueId === undefined).length
+      az: (localNewValues.az || []).length,
+      en: (localNewValues.en || []).length,
+      ru: (localNewValues.ru || []).length
     }
     
     if (newValueCounts.az !== newValueCounts.en || newValueCounts.en !== newValueCounts.ru) {
@@ -271,9 +376,9 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
       // CREATE MODE - Group by index position across all three languages
       // Structure: { attributeId, attributeValueDtos: [{ value: [{ value, language }, ...] }, ...] }
       
-      const newValuesAz = (langValueRecords.az || []).filter(r => r.attributeValueId === undefined)
-      const newValuesEn = (langValueRecords.en || []).filter(r => r.attributeValueId === undefined)
-      const newValuesRu = (langValueRecords.ru || []).filter(r => r.attributeValueId === undefined)
+      const newValuesAz = localNewValues.az || []
+      const newValuesEn = localNewValues.en || []
+      const newValuesRu = localNewValues.ru || []
       
       const maxNewValues = Math.max(newValuesAz.length, newValuesEn.length, newValuesRu.length)
       
@@ -336,9 +441,9 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
       
       // Second pass: Group new values by their index position
       // All new values at same index across languages belong together
-      const newValuesAz = (langValueRecords.az || []).filter(r => r.attributeValueId === undefined)
-      const newValuesEn = (langValueRecords.en || []).filter(r => r.attributeValueId === undefined)
-      const newValuesRu = (langValueRecords.ru || []).filter(r => r.attributeValueId === undefined)
+      const newValuesAz = localNewValues.az || []
+      const newValuesEn = localNewValues.en || []
+      const newValuesRu = localNewValues.ru || []
       
       const maxNewValues = Math.max(newValuesAz.length, newValuesEn.length, newValuesRu.length)
       
@@ -405,37 +510,54 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
         {attributeId && (
           <div className="space-y-6">
             <Tabs value={selectedLanguage} onValueChange={v=>{ 
+              // Save current language data before switching
               setSelectedLanguage(v as Lang)
-              // Don't reset page on language change - each language shows same page of data
+              // Keep all data intact - just switch view
+              // Don't reset page, search, or any other state
             }}>
               <TabsList>
                 <TabsTrigger value="az">
                   AZ 
-                  {/* <span className="ml-1 text-xs text-gray-500">
-                    ({(langValueRecords.az || []).filter(r => r.attributeValueId === undefined).length} yeni)
-                  </span> */}
+                  <span className="ml-1 text-xs text-gray-500">
+                    ({(localNewValues.az || []).length} yeni)
+                  </span>
                 </TabsTrigger>
                 <TabsTrigger value="en">
                   EN
-                  {/* <span className="ml-1 text-xs text-gray-500">
-                    ({(langValueRecords.en || []).filter(r => r.attributeValueId === undefined).length} yeni)
-                  </span> */}
+                  <span className="ml-1 text-xs text-gray-500">
+                    ({(localNewValues.en || []).length} yeni)
+                  </span>
                 </TabsTrigger>
                 <TabsTrigger value="ru">
                   RU
-                  {/* <span className="ml-1 text-xs text-gray-500">
-                    ({(langValueRecords.ru || []).filter(r => r.attributeValueId === undefined).length} yeni)
-                  </span> */}
+                  <span className="ml-1 text-xs text-gray-500">
+                    ({(localNewValues.ru || []).length} yeni)
+                  </span>
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
+            {/* Info banner about bulk add */}
+            {/* <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-start gap-2">
+                <span className="text-blue-600 font-semibold">💡</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-800">
+                    Toplu əlavə funksiyası
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Birdən çox dəyəri vergüllə ayıraraq eyni anda əlavə edə bilərsiniz. Məsələn: <code className="bg-blue-100 px-1 rounded">Bakı, Gəncə, Sumqayıt</code>
+                  </p>
+                </div>
+              </div>
+            </div> */}
+
             {/* Warning banner when new value counts don't match */}
             {(() => {
               const newCounts = {
-                az: (langValueRecords.az || []).filter(r => r.attributeValueId === undefined).length,
-                en: (langValueRecords.en || []).filter(r => r.attributeValueId === undefined).length,
-                ru: (langValueRecords.ru || []).filter(r => r.attributeValueId === undefined).length
+                az: (localNewValues.az || []).length,
+                en: (localNewValues.en || []).length,
+                ru: (localNewValues.ru || []).length
               }
               const countsMatch = newCounts.az === newCounts.en && newCounts.en === newCounts.ru
               
@@ -461,10 +583,15 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
 
             <div className="flex gap-4">
               <div className="flex flex-col flex-1">
-                <label className="mb-2 text-sm font-medium">Value</label>
+                <label className="mb-2 text-sm font-medium">
+                  Value 
+                  <span className="ml-2 text-xs text-gray-500 font-normal">
+                    (Toplu əlavə vergüllə: dəyər1, dəyər2, dəyər3)
+                  </span>
+                </label>
                 <Input
                   value={valueInput}
-                  placeholder="Enter value"
+                  placeholder="Dəyər daxil edin və ya vergüllə ayıraraq toplu əlavə edin"
                   onChange={e=>setValueInput(e.target.value)}
                   onKeyDown={e=>{
                     if (e.key === 'Enter') {
@@ -511,14 +638,22 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
                 <div className="text-sm text-muted-foreground">No values</div>
               ) : (
                 currentValues.map((v, idx) => {
-                const originalIndex = (languageValues[selectedLanguage]||[]).indexOf(v)
-                if (originalIndex < 0) return null
-                const rec = (langValueRecords[selectedLanguage]||[])[originalIndex]
+                const apiValues = langValueRecords[selectedLanguage] || []
+                const localVals = localNewValues[selectedLanguage] || []
+                
+                let rec: { attributeValueId?: number; id?: number } | undefined
+                if (idx < apiValues.length) {
+                  rec = apiValues[idx]
+                } else {
+                  rec = { attributeValueId: undefined }
+                }
+                
                 const uniqueId = rec?.attributeValueId ?? rec?.id
                 const isDeleting = uniqueId ? deletingIds.has(uniqueId) : false
+                
                 return (
                   <div
-                    key={v + originalIndex}
+                    key={`${v}_${idx}`}
                     className="border rounded p-2 flex items-center justify-between"
                   >
                     <span className="text-sm">{v}</span>
@@ -526,13 +661,13 @@ const AttributeValuesModal: React.FC<AttributeValuesModalProps> = ({ open, attri
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={()=>handleStartEditValue(selectedLanguage, originalIndex)}
+                        onClick={()=>handleStartEditValue(selectedLanguage, idx)}
                         disabled={isDeleting}
                       ><Edit className="h-4 w-4" /></Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={()=>handleDeleteValue(selectedLanguage, originalIndex)}
+                        onClick={()=>handleDeleteValue(selectedLanguage, idx)}
                         disabled={isDeleting}
                       >
                         {isDeleting ? (

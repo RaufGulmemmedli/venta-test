@@ -54,10 +54,12 @@ export interface AttributI18n {
     type?: string
     stepName?: string | null
     isActive: boolean
+    order?: number
     sortOrder: number
     translations?: { lang: string; title: string; description: string }[]
 
-    sectionName?: string 
+    sectionName?: string
+    sectionDtos?: { sectionId: number; title: string }[] // NEW: Array of sections with titles
     valueType?: number
     isValuable?: boolean
     isVisible?: boolean
@@ -166,25 +168,32 @@ export const attributService = {
         const data: any = res.data
         if (Array.isArray(data?.responseValue?.items)) {
             const items = data.responseValue.items as any[]
-            return items.map((it) => ({
-                id: it.id,
-                sectionId: it.sectionId ?? 0,
-                sectionName: it.sectionName ?? '',           
-                isActive: it.isActive,
-                sortOrder: it.sortOrder ?? 0,
-                valueType: it.valueType,
-                isValuable: it.isValuable,
-                isVisible: it.isVisible,
-                isPrinted: it.isPrinted,
-                isIncluded: it.isIncluded,
-                isImportant: it.isImportant,
-                name: it.name,
-                isVisiable: it.isVisible,
-                isImportand: it.isImportant,
-                setCreateAttributeRequest: it.name
-                    ? [{ name: it.name, language: 'az' }]
-                    : undefined,
-            }))
+            return items.map((it) => {
+                // Extract section names from sectionDtos array
+                const sectionDtos = Array.isArray(it.sectionDtos) ? it.sectionDtos : []
+                const sectionNames = sectionDtos.map((dto: any) => dto.title).filter(Boolean).join(', ')
+                
+                return {
+                    id: it.id,
+                    sectionId: it.sectionId ?? 0,
+                    sectionName: sectionNames || it.sectionName || '',
+                    sectionDtos: sectionDtos, // Keep original array for reference
+                    isActive: it.isActive,
+                    sortOrder: it.sortOrder ?? 0,
+                    valueType: it.valueType,
+                    isValuable: it.isValuable,
+                    isVisible: it.isVisible,
+                    isPrinted: it.isPrinted,
+                    isIncluded: it.isIncluded,
+                    isImportant: it.isImportant,
+                    name: it.name,
+                    isVisiable: it.isVisible,
+                    isImportand: it.isImportant,
+                    setCreateAttributeRequest: it.name
+                        ? [{ name: it.name, language: 'az' }]
+                        : undefined,
+                }
+            })
         }
 
         const arr: AttributI18n[] =
@@ -230,7 +239,8 @@ export const attributService = {
                 id: item.id,
                 sectionId: item.sectionDto?.id ?? item.sectionId ?? 0,
                 isActive: item.isActive,
-                sortOrder: item.sortOrder ?? 0,
+                order: item.order ?? item.sortOrder ?? 0,
+                sortOrder: item.order ?? item.sortOrder ?? 0,
                 valueType: item.valueType,
                 isValuable: item.isValuable,
                 isVisible: item.isVisible,
@@ -252,7 +262,8 @@ export const attributService = {
                 id: it.id,
                 sectionId: it.sectionId,
                 isActive: it.isActive,
-                sortOrder: it.sortOrder ?? 0,
+                order: it.order ?? it.sortOrder ?? 0,
+                sortOrder: it.order ?? it.sortOrder ?? 0,
                 valueType: it.valueType,
                 isValuable: it.isValuable,
                 isVisible: it.isVisible,
@@ -280,11 +291,21 @@ export const attributService = {
         const data: any = response.data
         const v = data?.responseValue
         if (v && typeof v === 'object') {
-            const setCreateAttributeRequest = Array.isArray(v.translations)
+            // Handle translations (new format)
+            const translations = Array.isArray(v.translations)
                 ? v.translations.map((tr: any) => ({
                     id: tr?.id,
                     name: tr?.name ?? '',
                     language: tr?.language ?? ''
+                }))
+                : []
+
+            // Handle attributeSets (old format fallback)
+            const attributeSets = Array.isArray(v.attributeSets)
+                ? v.attributeSets.map((set: any) => ({
+                    id: set?.id,
+                    name: set?.name ?? '',
+                    language: set?.language ?? ''
                 }))
                 : []
 
@@ -300,11 +321,13 @@ export const attributService = {
                 isActive: v.isActive,
                 name: v.name,
                 attributeValueDtos: v.attributeValueDtos || [],
-
-               
+                // Return both translations and sectionIds in new format
+                translations: translations,
+                attributeSets: attributeSets.length > 0 ? attributeSets : translations,
+                sectionIds: v.sectionIds || [], // Keep the new format with moduleType
                 isVisiable: v.isVisible,
                 isImportand: v.isImportant,
-                setCreateAttributeRequest,
+                setCreateAttributeRequest: translations.length > 0 ? translations : attributeSets,
             }
         }
         return data

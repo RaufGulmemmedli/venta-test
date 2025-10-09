@@ -22,6 +22,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Toaster } from "@/components/ui/toaster"
 import AttributeValuesModal from "@/containers/settings/pages/AttributeValuesModal"
 import { useTranslations } from "next-intl"
+import { cn } from "@/lib/utils"
 
 interface FormData {
   [key: string]: any;
@@ -531,35 +532,36 @@ export default function VacancyCreateContainer() {
     15: "Price"
   };
 
-  const MultiSelectDropdown = ({
+  const SearchableSelect = ({
     options,
     value,
     onChange,
     placeholder = "Seçin..."
   }: {
     options: { label: string; value: string }[];
-    value: string[] | undefined;
-    onChange: (val: string[]) => void;
+    value: string | undefined;
+    onChange: (val: string) => void;
     placeholder?: string;
   }) => {
     const [open, setOpen] = React.useState(false);
     const [searchTerm, setSearchTerm] = React.useState("");
-    const selected = Array.isArray(value) ? value : [];
-
-    const toggleValue = (val: string) => {
-      const exists = selected.includes(val);
-      const newValues = exists ? selected.filter(v => v !== val) : [...selected, val];
-      onChange(newValues);
-    };
-
-    const clearAll = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onChange([]);
-    };
 
     const filteredOptions = options.filter(opt => 
       opt.label.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const selectedOption = options.find(opt => opt.value === value);
+
+    const selectValue = (val: string) => {
+      onChange(val);
+      setOpen(false);
+      setSearchTerm("");
+    };
+
+    const clearValue = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onChange("");
+    };
 
     return (
       <div className="relative">
@@ -568,31 +570,14 @@ export default function VacancyCreateContainer() {
           onClick={() => setOpen(!open)}
           className="w-full min-h-[40px] flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <div className="flex flex-wrap gap-1 pr-2">
-            {selected.length === 0 && (
-              <span className="text-gray-500">{placeholder}</span>
-            )}
-            {selected.map(v => (
-              <span
-                key={v}
-                className="flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700"
-              >
-                {v}
-                <X
-                  className="w-3 h-3 cursor-pointer hover:text-blue-900"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleValue(v);
-                  }}
-                />
-              </span>
-            ))}
-          </div>
+          <span className={selectedOption ? "text-gray-900" : "text-gray-500"}>
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
           <div className="flex items-center gap-2">
-            {selected.length > 0 && (
+            {selectedOption && (
               <button
                 type="button"
-                onClick={clearAll}
+                onClick={clearValue}
                 className="text-xs text-red-500 hover:underline"
               >
                 {t("clear")}
@@ -613,35 +598,39 @@ export default function VacancyCreateContainer() {
         </button>
 
         {open && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-hidden">
-            <div className="p-2 border-b">
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden">
+            <div className="p-2 border-b bg-gray-50">
               <Input
                 type="text"
                 placeholder={t("searchPlaceholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full text-sm"
+                autoFocus
               />
             </div>
-            <div className="max-h-48 overflow-auto">
+            <div className="overflow-y-auto" style={{ maxHeight: '200px' }}>
               {filteredOptions.length === 0 ? (
                 <div className="p-3 text-sm text-gray-500 text-center">
                   {t("noResults")}
                 </div>
               ) : (
                 filteredOptions.map(opt => {
-                  const isSelected = selected.includes(opt.value);
+                  const isSelected = opt.value === value;
                   return (
                     <div
                       key={opt.value}
-                      onClick={() => toggleValue(opt.value)}
-                      className="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => selectValue(opt.value)}
+                      className={`flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer ${
+                        isSelected ? 'bg-blue-50' : ''
+                      }`}
                     >
-                      <Checkbox style={{width: '26px', height: '16px'}}
-                        checked={isSelected}
-                        className="pointer-events-none"
-                      />
-                      <span className="text-sm flex-1">{opt.label}</span>
+                      {isSelected && (
+                        <Check className="w-4 h-4 text-blue-600" />
+                      )}
+                      <span className={`text-sm flex-1 ${isSelected ? 'font-medium text-blue-600' : ''}`}>
+                        {opt.label}
+                      </span>
                     </div>
                   );
                 })
@@ -653,10 +642,171 @@ export default function VacancyCreateContainer() {
         {open && (
           <div 
             className="fixed inset-0 z-40" 
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              setSearchTerm("");
+            }}
           />
         )}
       </div>
+    );
+  };
+
+  const MultiSelectDropdown = ({
+    options,
+    value,
+    onChange,
+    placeholder = "Seçin..."
+  }: {
+    options: { label: string; value: string }[];
+    value: string[] | undefined;
+    onChange: (val: string[]) => void;
+    placeholder?: string;
+  }) => {
+    const [open, setOpen] = React.useState(false);
+    const [searchTerm, setSearchTerm] = React.useState("");
+    const selected = Array.isArray(value) ? value : [];
+
+    const toggleValue = (val: string) => {
+      const exists = selected.includes(val);
+      const newValues = exists ? selected.filter(v => v !== val) : [...selected, val];
+      onChange(newValues);
+      // Dropdown açıq qalsın
+    };
+
+    const clearAll = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onChange([]);
+    };
+
+    const filteredOptions = options.filter(opt => 
+      opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const handleOpenChange = (newOpen: boolean) => {
+      setOpen(newOpen);
+      if (!newOpen) {
+        setSearchTerm("");
+      }
+    };
+
+    return (
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="w-full min-h-[56px] flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-4 py-3 text-left text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <div className="flex flex-wrap gap-2 pr-2">
+              {selected.length === 0 && (
+                <span className="text-gray-500 text-base">{placeholder}</span>
+              )}
+              {selected.map(v => (
+                <span
+                  key={v}
+                  className="flex items-center gap-1.5 rounded-md bg-blue-100 px-3 py-1.5 text-sm font-medium text-blue-700"
+                >
+                  {v}
+                  <X
+                    className="w-4 h-4 cursor-pointer hover:text-blue-900"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleValue(v);
+                    }}
+                  />
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              {selected.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="text-sm text-red-500 hover:underline font-medium"
+                >
+                  {t("clear")}
+                </button>
+              )}
+              <svg
+                className={`h-5 w-5 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          side="bottom"
+          align="start"
+          sideOffset={6}
+          avoidCollisions
+          collisionPadding={8}
+          className="z-50 p-0 w-[var(--radix-popover-trigger-width)] bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.closest('[role="option"]') || target.closest('.popover-content-area')) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <div className="p-2 border-b bg-gray-50 popover-content-area">
+            <Input
+              type="text"
+              placeholder={t("searchPlaceholder")}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full text-sm"
+              autoFocus
+            />
+          </div>
+          <div className="overflow-y-auto popover-content-area" style={{ maxHeight: '200px' }}>
+            {filteredOptions.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                {t("noResults")}
+              </div>
+            ) : (
+              filteredOptions.map(opt => {
+                const isSelected = selected.includes(opt.value);
+                return (
+                  <div
+                    key={opt.value}
+                    role="option"
+                    onClick={() => toggleValue(opt.value)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors",
+                      isSelected && "bg-blue-50/50"
+                    )}
+                  >
+                    <div className={cn(
+                      "flex items-center justify-center w-5 h-5 rounded border-2 transition-all",
+                      isSelected 
+                        ? "bg-blue-500 border-blue-500" 
+                        : "bg-white border-gray-300 hover:border-blue-400"
+                    )}>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                    <span className={cn(
+                      "text-sm flex-1",
+                      isSelected && "font-medium text-gray-900"
+                    )}>
+                      {opt.label}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
     );
   };
 
@@ -774,21 +924,12 @@ const extractOptions = (values: any[] = []) => {
         );
       case 5: // Select
         return (
-          <Select
+          <SearchableSelect
+            options={options}
             value={currentValue}
-            onValueChange={(val) => updateFormData(attributeId, val)}
-          >
-            <SelectTrigger className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              <SelectValue placeholder="Seçin..." />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(val) => updateFormData(attributeId, val)}
+            placeholder="Seçin..."
+          />
         );
       case 6: // MultiSelect
         return (

@@ -13,26 +13,6 @@ export interface CvApiAttributeValue {
         boolValue: boolean | null;
     };
 }
-
-export interface CvAttributeValue {
-    attributeValueId: number;
-    languages: { id: number; name: string; language: string; value: string }[];
-}
-
-export interface CvAttribute {
-    attributeId: number;
-    valueType: number;
-    isValuable: boolean;
-    isPrinted: boolean;
-    isVisible: boolean;
-    isImportant: boolean;
-    isActive: boolean;
-    isIncluded: boolean;
-    order: number;
-    name: string;
-    attributeSets?: { name: string }[];
-    values: CvAttributeValue[];
-}
 export interface CreateCvRequest {
     sectionDtos: {
         sectionId: number;
@@ -44,6 +24,14 @@ export interface CreateCvRequest {
                 language: string;
             }[];
         }[];
+    }[];
+}
+
+export interface CreateCvMediaRequest {
+    resumeId: number;
+    files: {
+        file: string | File | Blob;
+        fileType: number; // 1 = image, 2 = video, etc.
     }[];
 }
 export interface CvApiSection {
@@ -123,7 +111,9 @@ export interface CvAttributeValueSet {
 export interface CvAttributeValue {
     attributeValueId: number
     display: string
-    sets: CvAttributeValueSet[]
+    set?: CvAttributeValueSet  // Single set object from API
+    sets: CvAttributeValueSet[] // Array of sets for compatibility
+    languages?: { id: number; name: string; language: string; value: string }[] // For backwards compatibility
 }
 
 export interface CvAttribute {
@@ -191,6 +181,15 @@ export const cvService = {
                 attributeSets: [{ name: attr.name }], // Transform name to attributeSets format
                 values: attr.values.map(value => ({
                     attributeValueId: value.attributeValueId,
+                    display: value.display,
+                    set: value.set,
+                    sets: value.set ? [{
+                        language: value.set.language,
+                        stringValue: value.set.stringValue,
+                        decimalValue: value.set.decimalValue,
+                        dateTimeValue: value.set.dateTimeValue,
+                        boolValue: value.set.boolValue
+                    }] : [],
                     languages: [{
                         id: value.attributeValueId,
                         name: value.display,
@@ -204,11 +203,42 @@ export const cvService = {
         return {
             stepId: stepId,
             stepName: `Step ${stepId}`,
-            sections: sections as CvTransformedSection[]
+            sections: sections
         };
     },
     createCvData: async (data: CreateCvRequest): Promise<any> => {
         const response = await axiosInstance.post<any>('Resumes/create', data);
+        return response.data;
+    },
+    getCvMedia: async (resumeId: number): Promise<any> => {
+        const response = await axiosInstance.get<any>(`resumefile/get-by-resume-id?ResumeId=${resumeId}`);
+        return response.data;
+    },
+    createCvMedia: async (resumeId: number, files: { file: File | Blob; fileType: number }[]): Promise<any> => {
+        const formData = new FormData();
+        formData.append('ResumeId', String(resumeId));
+        
+        // Add files to FormData according to API specification
+        files.forEach((fileObj, index) => {
+            // Generate a proper filename
+            let filename = 'file';
+            if (fileObj.file instanceof File) {
+                filename = fileObj.file.name;
+            } else {
+                // For Blob, generate filename based on type
+                const extension = fileObj.fileType === 1 ? 'jpg' : fileObj.fileType === 2 ? 'webm' : 'file';
+                filename = `upload-${Date.now()}-${index}.${extension}`;
+            }
+            
+            formData.append(`Files[${index}].file`, fileObj.file, filename);
+            formData.append(`Files[${index}].fileType`, String(fileObj.fileType));
+        });
+        
+        const response = await axiosInstance.post<any>('resumefile/create', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
         return response.data;
     },
     getAllCv: async (params: CvParams = {}): Promise<CvListPage> => {
@@ -301,6 +331,13 @@ export const cvService = {
                         values: (attr.values || []).map((value: any) => ({
                             attributeValueId: value.attributeValueId,
                             display: value.display,
+                            set: value.set ? {
+                                language: value.set.language,
+                                stringValue: value.set.stringValue,
+                                decimalValue: value.set.decimalValue,
+                                dateTimeValue: value.set.dateTimeValue,
+                                boolValue: value.set.boolValue
+                            } : undefined,
                             sets: value.set ? [{
                                 language: value.set.language,
                                 stringValue: value.set.stringValue,
@@ -322,6 +359,10 @@ export const cvService = {
     },
     deleteCv: async (id: number): Promise<any> => {
         const response = await axiosInstance.delete<any>(`Resumes/delete?ResumeId=${id}`);
+        return response.data;
+    },
+    deleteResumeFile: async (id: number): Promise<any> => {
+        const response = await axiosInstance.delete<any>(`resumefile/delete?Id=${id}`);
         return response.data;
     }
 };
