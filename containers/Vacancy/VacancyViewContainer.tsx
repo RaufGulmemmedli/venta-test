@@ -42,18 +42,35 @@ function StepCard({
       return <span className="text-gray-400">-</span>;
     }
 
-    const azValue = value.sets.find((set: any) => set.language === 'az');
+    // Case-insensitive language check
+    const azValue = value.sets.find((set: any) => set.language?.toLowerCase() === 'az');
     
     if (!azValue) {
       return <span className="text-gray-400">-</span>;
     }
 
     switch (attribute.valueType) {
-      case 6: // MultiSelect
-        const multiValues = value.sets.map((set: any) => set.stringValue || set.decimalValue || set.boolValue);
+      case 6: // MultiSelect - show all values from all items in attribute.values array
+        const allMultiValues: any[] = [];
+        attribute.values.forEach((val: any) => {
+          if (val.sets && Array.isArray(val.sets)) {
+            const azSet = val.sets.find((set: any) => set.language?.toLowerCase() === 'az');
+            if (azSet) {
+              const displayValue = azSet.stringValue || azSet.decimalValue || azSet.boolValue;
+              if (displayValue !== null && displayValue !== undefined) {
+                allMultiValues.push(displayValue);
+              }
+            }
+          }
+        });
+        
+        if (allMultiValues.length === 0) {
+          return <span className="text-gray-400">-</span>;
+        }
+        
         return (
           <div className="flex flex-wrap gap-1">
-            {multiValues.map((val: any, index: number) => (
+            {allMultiValues.map((val: any, index: number) => (
               <Badge key={index} variant="secondary" className="text-xs">
                 {String(val)}
               </Badge>

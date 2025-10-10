@@ -17,7 +17,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { X, Check } from "lucide-react";
 import { Calendar as CalendarIcon, Clock } from "lucide-react"
-import { format } from "date-fns"
+import { format, parse, isValid } from "date-fns"
 import { Calendar } from "@/components/ui/calendar"
 import { Toaster } from "@/components/ui/toaster"
 import AttributeValuesModal from "@/containers/settings/pages/AttributeValuesModal"
@@ -48,6 +48,13 @@ export default function VacancyCreateContainer() {
 
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [errorFields, setErrorFields] = useState<Set<string>>(new Set());
+
+  const [dropdownOpenMap, setDropdownOpenMap] = useState<Record<string, boolean>>({});
+  const ddKeyFor = (attributeId: number, instanceIndex?: number) =>
+    instanceIndex && instanceIndex > 0 ? `${attributeId}_${instanceIndex}` : String(attributeId);
+  const setDropdownOpen = (key: string, open: boolean) =>
+    setDropdownOpenMap(prev => ({ ...prev, [key]: open }));
 
   // Fetch Vacancy data for editing
   const { data: editVacancyData, isLoading: editDataLoading } = useVacancyById(editId);
@@ -164,47 +171,138 @@ export default function VacancyCreateContainer() {
       editVacancyData.steps.forEach(step => {
         step.sections.forEach(section => {
           section.attributes.forEach(attribute => {
-            console.log('Processing attribute:', attribute.attributeId, 'with values:', attribute.values);
+            console.log('Processing attribute:', attribute.attributeId, 'valueType:', attribute.valueType, 'values:', attribute.values);
             
             if (attribute.values && attribute.values.length > 0) {
-              const value = attribute.values[0];
-              const azValue = value.sets.find(set => set.language === 'az');
+              let formValue: any = null;
               
-              console.log('AZ value found:', azValue);
+              switch (attribute.valueType) {
+                case 6: // MultiSelect - collect all values
+                  const multiSelectValues: string[] = [];
+                  attribute.values.forEach(val => {
+                    // Use display if available
+                    if (val.display) {
+                      multiSelectValues.push(val.display);
+                    } else if (val.sets && val.sets.length > 0) {
+                      // Find az/AZ language value (case insensitive)
+                      const azSet = val.sets.find(set => 
+                        set.language?.toLowerCase() === 'az'
+                      );
+                      if (azSet) {
+                        const setValue = azSet.stringValue || azSet.decimalValue?.toString() || (azSet.boolValue !== null ? azSet.boolValue.toString() : null);
+                        if (setValue) multiSelectValues.push(setValue);
+                      }
+                    }
+                  });
+                  formValue = multiSelectValues.length > 0 ? multiSelectValues : null;
+                  break;
+                  
+                case 5: // Select - single value
+                  const firstValue = attribute.values[0];
+                  if (firstValue.display) {
+                    formValue = firstValue.display;
+                  } else if (firstValue.sets && firstValue.sets.length > 0) {
+                    const azSet = firstValue.sets.find(set => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet) {
+                      formValue = azSet.stringValue || azSet.decimalValue?.toString() || (azSet.boolValue !== null ? azSet.boolValue.toString() : null);
+                    }
+                  }
+                  break;
+                  
+                case 8: // DateRange
+                  const dateRangeValue = attribute.values[0];
+                  if (dateRangeValue.sets && dateRangeValue.sets.length > 0) {
+                    const azSet = dateRangeValue.sets.find(set => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet && azSet.stringValue) {
+                      // Parse "start - end" format
+                      const parts = azSet.stringValue.split(' - ');
+                      if (parts.length === 2) {
+                        formValue = { start: parts[0].trim(), end: parts[1].trim() };
+                      } else {
+                        formValue = azSet.stringValue;
+                      }
+                    }
+                  }
+                  break;
+                  
+                case 7: // Date
+                case 13: // Datetime
+                  const dateValue = attribute.values[0];
+                  if (dateValue.sets && dateValue.sets.length > 0) {
+                    const azSet = dateValue.sets.find(set => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet && azSet.dateTimeValue) {
+                      formValue = azSet.dateTimeValue;
+                    }
+                  }
+                  break;
+                  
+                case 9: // Checkbox
+                  const checkboxValue = attribute.values[0];
+                  if (checkboxValue.sets && checkboxValue.sets.length > 0) {
+                    const azSet = checkboxValue.sets.find(set => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet && azSet.boolValue !== null && azSet.boolValue !== undefined) {
+                      formValue = azSet.boolValue;
+                    }
+                  }
+                  break;
+                  
+                case 2: // Number
+                case 10: // Range
+                case 15: // Price
+                  const numberValue = attribute.values[0];
+                  if (numberValue.display) {
+                    formValue = parseFloat(numberValue.display);
+                  } else if (numberValue.sets && numberValue.sets.length > 0) {
+                    const azSet = numberValue.sets.find(set => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet && azSet.decimalValue !== null && azSet.decimalValue !== undefined) {
+                      formValue = azSet.decimalValue;
+                    }
+                  }
+                  break;
+                  
+                case 3: // Radio
+                  const radioValue = attribute.values[0];
+                  if (radioValue.display) {
+                    formValue = radioValue.display;
+                  } else if (radioValue.sets && radioValue.sets.length > 0) {
+                    const azSet = radioValue.sets.find(set => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet) {
+                      formValue = azSet.stringValue || azSet.decimalValue?.toString() || (azSet.boolValue !== null ? azSet.boolValue.toString() : null);
+                    }
+                  }
+                  break;
+                  
+                default: // String, TextArea, Email, Phone, Color, etc.
+                  const defaultValue = attribute.values[0];
+                  if (defaultValue.display) {
+                    formValue = defaultValue.display;
+                  } else if (defaultValue.sets && defaultValue.sets.length > 0) {
+                    const azSet = defaultValue.sets.find(set => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet) {
+                      formValue = azSet.stringValue || azSet.decimalValue?.toString() || (azSet.boolValue !== null ? azSet.boolValue.toString() : null);
+                    }
+                  }
+                  break;
+              }
               
-              if (azValue) {
-                let formValue: any;
-                
-                switch (attribute.valueType) {
-                  case 6: // MultiSelect
-                    formValue = [azValue.stringValue || azValue.decimalValue || azValue.boolValue];
-                    break;
-                  case 5: // Select
-                    formValue = value.display || azValue.stringValue || azValue.decimalValue || azValue.boolValue;
-                    break;
-                  case 8: // DateRange
-                    formValue = azValue.stringValue;
-                    break;
-                  case 7: // Date
-                  case 13: // Datetime
-                    formValue = azValue.dateTimeValue;
-                    break;
-                  case 9: // Checkbox
-                    formValue = azValue.boolValue;
-                    break;
-                  case 2: // Number
-                    formValue = azValue.decimalValue;
-                    break;
-                  default:
-                    formValue = azValue.stringValue || azValue.decimalValue || azValue.boolValue;
-                    break;
-                }
-                
-                console.log(`Setting form value for attribute ${attribute.attributeId}:`, formValue);
-                
-                if (formValue !== null && formValue !== undefined) {
-                  newFormData[attribute.attributeId] = formValue;
-                }
+              console.log(`Setting form value for attribute ${attribute.attributeId} (type ${attribute.valueType}):`, formValue);
+              
+              if (formValue !== null && formValue !== undefined) {
+                newFormData[attribute.attributeId] = formValue;
               }
             }
           });
@@ -239,49 +337,81 @@ export default function VacancyCreateContainer() {
 
   const validateCurrentStep = () => {
     if (!currentStepData) return true
+    if (!currentStepData.sections || !Array.isArray(currentStepData.sections)) return true
 
-    const requiredFields = currentStepData.sections
-      .flatMap((section: any) => section.attributes)
-      .filter((attr: any) => attr.isImportant || attr.isInportant) 
+    const newErrorFields = new Set<string>();
 
-    if (requiredFields.length === 0) return true
-
-    for (const field of requiredFields) {
-      const value = formData[field.attributeId]
-      const fieldName = field.attributeSets?.[0]?.name || field.name || `Field ${field.attributeId}`
-      if (isValueEmpty(field, value)) {
-          toast({
-            variant: "destructive",
-            description: `${t("requiredField")} ${fieldName}`,
-          })
-          return false
+    for (const section of currentStepData.sections) {
+      if (!section.attributes || !Array.isArray(section.attributes)) {
+        continue;
       }
-    }
-    return true
-  };
 
-  const validateAllSteps = () => {
-    // Validate all active steps that have been visited
-    for (const step of allSteps) {
-      const stepData = allStepsData[step.id];
-      if (stepData) {
-        const requiredFields = stepData.sections
-          .flatMap((section: any) => section.attributes)
-          .filter((attr: any) => attr.isImportant || attr.isInportant);
+      const instanceCount = getSectionInstanceCount(section.sectionId);
+      const totalInstances = instanceCount + 1;
+
+      for (let instanceIndex = 0; instanceIndex < totalInstances; instanceIndex++) {
+        const requiredFields = section.attributes.filter(
+          (attr: any) => attr.isImportant || attr.isInportant
+        );
 
         for (const field of requiredFields) {
-          const value = formData[field.attributeId];
-          const fieldName = field.attributeSets?.[0]?.name || field.name || `Field ${field.attributeId}`;
+          const key = instanceIndex === 0 ? field.attributeId : `${field.attributeId}_${instanceIndex}`;
+          const value = formData[key];
+
           if (isValueEmpty(field, value)) {
-            toast({
-              variant: "destructive",
-              description: `${t("requiredField")} ${fieldName}`,
-            });
-            return false;
+            newErrorFields.add(String(key));
           }
         }
       }
     }
+
+    if (newErrorFields.size > 0) {
+      setErrorFields(newErrorFields);
+      return false;
+    }
+
+    setErrorFields(new Set());
+    return true;
+  };
+
+  const validateAllSteps = () => {
+    const newErrorFields = new Set<string>();
+
+    for (const step of allSteps) {
+      const stepData = allStepsData[step.id];
+      if (stepData && stepData.sections && Array.isArray(stepData.sections)) {
+        for (const section of stepData.sections) {
+          if (!section.attributes || !Array.isArray(section.attributes)) {
+            continue;
+          }
+
+          const instanceCount = getSectionInstanceCount(section.sectionId);
+          const totalInstances = instanceCount + 1;
+
+          for (let instanceIndex = 0; instanceIndex < totalInstances; instanceIndex++) {
+            const requiredFields = section.attributes.filter(
+              (attr: any) => attr.isImportant || attr.isInportant
+            );
+
+            for (const field of requiredFields) {
+              const key = instanceIndex === 0 ? field.attributeId : `${field.attributeId}_${instanceIndex}`;
+              const value = formData[key];
+
+              if (isValueEmpty(field, value)) {
+                newErrorFields.add(String(key));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (newErrorFields.size > 0) {
+      setErrorFields(newErrorFields);
+      return false;
+    }
+
+    setErrorFields(new Set());
     return true;
   };
 
@@ -296,9 +426,13 @@ export default function VacancyCreateContainer() {
 
   const goToNextStep = () => {
     if (!validateCurrentStep()) {
-      return; 
+      toast({
+        variant: "destructive",
+        description: t("fillRequiredFields") || "Zəhmət olmasa tələb olunan sahələri doldurun"
+      });
+      return;
     }
-    
+
     setCompletedSteps(prev => {
       const next = new Set(prev);
       next.add(currentStepIndex);
@@ -436,11 +570,20 @@ export default function VacancyCreateContainer() {
   };
 
   const updateFormData = (attributeId: number, value: any, instanceIndex?: number) => {
-    const key = instanceIndex !== undefined ? `${attributeId}_${instanceIndex}` : attributeId;
-    setFormData(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    const key = (instanceIndex !== undefined && instanceIndex > 0) ? `${attributeId}_${instanceIndex}` : attributeId;
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [key]: value
+      };
+      return updated;
+    });
+
+    setErrorFields(prev => {
+      const newErrors = new Set(prev);
+      newErrors.delete(String(key));
+      return newErrors;
+    });
   };
 
   const addSectionInstance = (sectionId: number) => {
@@ -536,12 +679,14 @@ export default function VacancyCreateContainer() {
     options,
     value,
     onChange,
-    placeholder = "Seçin..."
+    placeholder = "Seçin...",
+    hasError = false
   }: {
     options: { label: string; value: string }[];
     value: string | undefined;
     onChange: (val: string) => void;
     placeholder?: string;
+    hasError?: boolean;
   }) => {
     const [open, setOpen] = React.useState(false);
     const [searchTerm, setSearchTerm] = React.useState("");
@@ -563,13 +708,27 @@ export default function VacancyCreateContainer() {
       onChange("");
     };
 
+    const handleOpenChange = (newOpen: boolean) => {
+      setOpen(newOpen);
+      if (!newOpen) {
+        setSearchTerm("");
+      }
+    };
+
+    const buttonClassName = cn(
+      "w-full min-h-[40px] flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2 text-left text-sm focus:outline-none focus:ring-2",
+      hasError
+        ? "border-red-500 focus:ring-red-500"
+        : "border-gray-300 focus:ring-blue-500"
+    );
+
     return (
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className="w-full min-h-[40px] flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={buttonClassName}
+          >
           <span className={selectedOption ? "text-gray-900" : "text-gray-500"}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
@@ -596,139 +755,133 @@ export default function VacancyCreateContainer() {
             </svg>
           </div>
         </button>
-
-        {open && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden">
-            <div className="p-2 border-b bg-gray-50">
-              <Input
-                type="text"
-                placeholder={t("searchPlaceholder")}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full text-sm"
-                autoFocus
-              />
-            </div>
-            <div className="overflow-y-auto" style={{ maxHeight: '200px' }}>
-              {filteredOptions.length === 0 ? (
-                <div className="p-3 text-sm text-gray-500 text-center">
-                  {t("noResults")}
-                </div>
-              ) : (
-                filteredOptions.map(opt => {
-                  const isSelected = opt.value === value;
-                  return (
-                    <div
-                      key={opt.value}
-                      onClick={() => selectValue(opt.value)}
-                      className={`flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer ${
-                        isSelected ? 'bg-blue-50' : ''
-                      }`}
-                    >
-                      {isSelected && (
-                        <Check className="w-4 h-4 text-blue-600" />
-                      )}
-                      <span className={`text-sm flex-1 ${isSelected ? 'font-medium text-blue-600' : ''}`}>
-                        {opt.label}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+        </PopoverTrigger>
+        <PopoverContent
+          side="bottom"
+          align="start"
+          sideOffset={6}
+          avoidCollisions
+          collisionPadding={8}
+          className="z-50 p-0 w-[var(--radix-popover-trigger-width)] bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <div className="p-2 border-b bg-gray-50">
+            <Input
+              type="text"
+              placeholder={t("searchPlaceholder")}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full text-sm"
+              autoFocus
+            />
           </div>
-        )}
-
-        {open && (
-          <div 
-            className="fixed inset-0 z-40" 
-            onClick={() => {
-              setOpen(false);
-              setSearchTerm("");
-            }}
-          />
-        )}
-      </div>
+          <div className="overflow-y-auto" style={{ maxHeight: '200px' }}>
+            {filteredOptions.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                {t("noResults")}
+              </div>
+            ) : (
+              filteredOptions.map(opt => {
+                const isSelected = opt.value === value;
+                return (
+                  <div
+                    key={opt.value}
+                    onClick={() => selectValue(opt.value)}
+                    className={`flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer ${
+                      isSelected ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-blue-600" />
+                    )}
+                    <span className={`text-sm flex-1 ${isSelected ? 'font-medium text-blue-600' : ''}`}>
+                      {opt.label}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
     );
   };
 
-  const MultiSelectDropdown = ({
+  const MultiSelectDropdown = React.memo(({
     options,
     value,
     onChange,
-    placeholder = "Seçin..."
+    placeholder = "Seçin...",
+    hasError = false,
+    open,
+    onOpenChange,
   }: {
     options: { label: string; value: string }[];
     value: string[] | undefined;
     onChange: (val: string[]) => void;
     placeholder?: string;
+    hasError?: boolean;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
   }) => {
-    const [open, setOpen] = React.useState(false);
     const [searchTerm, setSearchTerm] = React.useState("");
     const selected = Array.isArray(value) ? value : [];
-
+  
+    const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  
+    const filteredOptions = React.useMemo(
+      () => options.filter(opt =>
+        opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+      [options, searchTerm]
+    );
+  
     const toggleValue = (val: string) => {
       const exists = selected.includes(val);
       const newValues = exists ? selected.filter(v => v !== val) : [...selected, val];
       onChange(newValues);
-      // Dropdown açıq qalsın
     };
-
+  
     const clearAll = (e: React.MouseEvent) => {
       e.stopPropagation();
       onChange([]);
     };
-
-    const filteredOptions = options.filter(opt => 
-      opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+  
+    const buttonClassName = cn(
+      "w-full min-h-[40px] flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2 text-left text-sm focus:outline-none focus:ring-2",
+      hasError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"
     );
-
-    const handleOpenChange = (newOpen: boolean) => {
-      setOpen(newOpen);
-      if (!newOpen) {
-        setSearchTerm("");
-      }
-    };
-
+  
     return (
-      <Popover open={open} onOpenChange={handleOpenChange}>
+      <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger asChild>
           <button
+            ref={triggerRef}
             type="button"
-            className="w-full min-h-[56px] flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-4 py-3 text-left text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onClick={() => onOpenChange(!open)}
+            className={buttonClassName}
           >
-            <div className="flex flex-wrap gap-2 pr-2">
-              {selected.length === 0 && (
-                <span className="text-gray-500 text-base">{placeholder}</span>
-              )}
-              {selected.map(v => (
-                <span
-                  key={v}
-                  className="flex items-center gap-1.5 rounded-md bg-blue-100 px-3 py-1.5 text-sm font-medium text-blue-700"
-                >
-                  {v}
-                  <X
-                    className="w-4 h-4 cursor-pointer hover:text-blue-900"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleValue(v);
-                    }}
-                  />
+            <div className="flex items-center gap-1 pr-2 min-w-0">
+              {selected.length === 0 ? (
+                <span className="text-gray-500">{placeholder}</span>
+              ) : (
+                <span className="text-gray-900 text-sm truncate">
+                  {selected.length} seçildi
                 </span>
-              ))}
+              )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {selected.length > 0 && (
                 <button
                   type="button"
                   onClick={clearAll}
-                  className="text-sm text-red-500 hover:underline font-medium"
+                  className="text-xs text-red-500 hover:underline"
                 >
                   {t("clear")}
                 </button>
               )}
               <svg
-                className={`h-5 w-5 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+                className={`h-4 w-4 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
                 viewBox="0 0 20 20"
                 fill="currentColor"
               >
@@ -741,7 +894,9 @@ export default function VacancyCreateContainer() {
             </div>
           </button>
         </PopoverTrigger>
+  
         <PopoverContent
+          forceMount
           side="bottom"
           align="start"
           sideOffset={6}
@@ -749,14 +904,15 @@ export default function VacancyCreateContainer() {
           collisionPadding={8}
           className="z-50 p-0 w-[var(--radix-popover-trigger-width)] bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden"
           onOpenAutoFocus={(e) => e.preventDefault()}
-          onInteractOutside={(e) => {
-            const target = e.target as HTMLElement;
-            if (target.closest('[role="option"]') || target.closest('.popover-content-area')) {
-              e.preventDefault();
-            }
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          onEscapeKeyDown={() => onOpenChange(false)}
+          onPointerDownOutside={(e) => {
+            const target = e.target as Node;
+            if (triggerRef.current && triggerRef.current.contains(target)) return;
+            onOpenChange(false);
           }}
         >
-          <div className="p-2 border-b bg-gray-50 popover-content-area">
+          <div className="p-2 border-b bg-gray-50">
             <Input
               type="text"
               placeholder={t("searchPlaceholder")}
@@ -766,7 +922,8 @@ export default function VacancyCreateContainer() {
               autoFocus
             />
           </div>
-          <div className="overflow-y-auto popover-content-area" style={{ maxHeight: '200px' }}>
+  
+          <div className="overflow-y-auto" style={{ maxHeight: 200 }}>
             {filteredOptions.length === 0 ? (
               <div className="p-3 text-sm text-gray-500 text-center">
                 {t("noResults")}
@@ -775,32 +932,20 @@ export default function VacancyCreateContainer() {
               filteredOptions.map(opt => {
                 const isSelected = selected.includes(opt.value);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={opt.value}
-                    role="option"
                     onClick={() => toggleValue(opt.value)}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors",
-                      isSelected && "bg-blue-50/50"
-                    )}
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="w-full flex items-center gap-2 p-2 hover:bg-gray-50 text-left"
                   >
-                    <div className={cn(
-                      "flex items-center justify-center w-5 h-5 rounded border-2 transition-all",
-                      isSelected 
-                        ? "bg-blue-500 border-blue-500" 
-                        : "bg-white border-gray-300 hover:border-blue-400"
-                    )}>
-                      {isSelected && (
-                        <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                      )}
-                    </div>
-                    <span className={cn(
-                      "text-sm flex-1",
-                      isSelected && "font-medium text-gray-900"
-                    )}>
-                      {opt.label}
-                    </span>
-                  </div>
+                    <Checkbox
+                      checked={isSelected}
+                      className="pointer-events-none"
+                      style={{ width: 16, height: 16 }}
+                    />
+                    <span className="text-sm flex-1">{opt.label}</span>
+                  </button>
                 );
               })
             )}
@@ -808,7 +953,7 @@ export default function VacancyCreateContainer() {
         </PopoverContent>
       </Popover>
     );
-  };
+  });
 
 const extractOptions = (values: any[] = []) => {
   const seen = new Set<string>()
@@ -834,18 +979,10 @@ const extractOptions = (values: any[] = []) => {
 
   const renderAttributeInput = (attribute: any, instanceIndex?: number) => {
     const { attributeId, valueType, attributeSets, values } = attribute;
-    const key = instanceIndex !== undefined ? `${attributeId}_${instanceIndex}` : attributeId;
+    const key = (instanceIndex !== undefined && instanceIndex > 0) ? `${attributeId}_${instanceIndex}` : attributeId;
     const rawValue = formData[key];
     const currentValue = rawValue ?? "";
-
-    // Debug logging for edit mode
-    if (isEditMode) {
-      console.log(`Rendering input for attribute ${attributeId}:`, {
-        rawValue,
-        currentValue,
-        formDataValue: formData[attributeId]
-      });
-    }
+    const hasError = errorFields.has(String(key));
 
     const options = extractOptions(values)
 
@@ -853,13 +990,19 @@ const extractOptions = (values: any[] = []) => {
     const label = attributeSet?.name || attribute.name || `Attribute ${attributeId}`;
     const placeholder = attributeSet?.name || attribute.name || "Dəyər daxil edin";
 
+    const baseClassName = "w-full bg-gray-50 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2";
+    const errorClassName = hasError
+      ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+      : "border-gray-300 focus:ring-blue-500 focus:border-blue-500";
+    const commonClassName = `${baseClassName} ${errorClassName}`;
+
     const commonProps = {
       value: normalizeInputValue(rawValue),
       onChange: (e: any) => {
         const val = getEventValue(e)
         updateFormData(attributeId, val, instanceIndex)
       },
-      className: "w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      className: commonClassName
     };
 
     const autoResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -880,19 +1023,19 @@ const extractOptions = (values: any[] = []) => {
               const optionValue = lang.value || lang.name;
               const isSelected = currentValue === optionValue;
               return (
-                <label key={index} className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-all duration-200 ${
-                  isSelected 
-                    ? 'border-blue-500 bg-blue-50 shadow-sm' 
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}>
+                <label key={index} className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-all duration-200 ${hasError
+                    ? 'border-red-500 bg-red-50'
+                    : isSelected
+                      ? 'border-blue-500 bg-blue-50 shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
                   <input
                     type="radio"
                     name={`attr_${attributeId}`}
                     value={optionValue}
                     checked={isSelected}
                     onChange={(e) => {
-                      console.log('Radio selected:', e.target.value);
-                      updateFormData(attributeId, e.target.value);
+                      updateFormData(attributeId, e.target.value, instanceIndex);
                     }}
                     className="w-4 h-4 text-blue-600 bg-white border-gray-300 focus:ring-blue-500 focus:ring-2"
                   />
@@ -927,25 +1070,32 @@ const extractOptions = (values: any[] = []) => {
           <SearchableSelect
             options={options}
             value={currentValue}
-            onChange={(val) => updateFormData(attributeId, val)}
+            onChange={(val) => updateFormData(attributeId, val, instanceIndex)}
             placeholder="Seçin..."
+            hasError={hasError}
           />
         );
-      case 6: // MultiSelect
+      case 6: {
+        const ddKey = ddKeyFor(attributeId, instanceIndex);
         return (
           <MultiSelectDropdown
             options={options}
             value={Array.isArray(currentValue) ? currentValue : []}
-            onChange={(val) => updateFormData(attributeId, val)}
+            onChange={(val) => updateFormData(attributeId, val, instanceIndex)}
             placeholder="Seçin..."
+            hasError={hasError}
+            open={!!dropdownOpenMap[ddKey]}
+            onOpenChange={(v) => setDropdownOpen(ddKey, v)}
           />
         );
+      }
       case 7:
         return (
           <StyledDatePicker
             value={currentValue}
-            onChange={(val) => updateFormData(attributeId, val)}
+            onChange={(val) => updateFormData(attributeId, val, instanceIndex)}
             placeholder="Tarix seçin"
+            hasError={hasError}
           />
         );
       case 8:
@@ -998,7 +1148,8 @@ const extractOptions = (values: any[] = []) => {
         return (
           <StyledDateTimePicker
             value={currentValue}
-            onChange={(val) => updateFormData(attributeId, val)}
+            onChange={(val) => updateFormData(attributeId, val, instanceIndex)}
+            hasError={hasError}
           />
         );
       case 14:
@@ -1010,18 +1161,48 @@ const extractOptions = (values: any[] = []) => {
     }
   };
 
+  const tryParseDate = (text: string): Date | null => {
+    const parsePatterns = ["dd.MM.yyyy", "dd/MM/yyyy", "yyyy-MM-dd"];
+    for (const pattern of parsePatterns) {
+      const parsed = parse(text.trim(), pattern, new Date());
+      if (isValid(parsed)) {
+        return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+      }
+    }
+    const nat = new Date(text);
+    if (isValid(nat)) {
+      return new Date(nat.getFullYear(), nat.getMonth(), nat.getDate());
+    }
+    return null;
+  };
+
   const StyledDatePicker = ({
     value,
     onChange,
-    placeholder = "Tarix seçin"
-  }: { value?: string; onChange: (val: string) => void; placeholder?: string }) => {
-    const [open, setOpen] = React.useState(false)
-    const dateObj = value ? new Date(value) : undefined
+    placeholder = "Tarix seçin",
+    hasError = false
+  }: { value?: string; onChange: (val: string) => void; placeholder?: string; hasError?: boolean }) => {
+    const fmtOut = "dd.MM.yyyy";
+    const [open, setOpen] = React.useState(false);
+    const [text, setText] = React.useState("");
+    const [invalid, setInvalid] = React.useState(false);
+    const dateObj = value ? new Date(value) : undefined;
 
-    const [displayDate, setDisplayDate] = React.useState<Date>(() => dateObj || new Date())
+    const [displayDate, setDisplayDate] = React.useState<Date>(() => dateObj || new Date());
+
     React.useEffect(() => {
-      if (dateObj) setDisplayDate(dateObj)
-    }, [value])
+      if (value) {
+        const d = new Date(value);
+        if (isValid(d)) {
+          setText(format(d, fmtOut));
+          setDisplayDate(d);
+          setInvalid(false);
+        }
+      } else {
+        setText("");
+        setInvalid(false);
+      }
+    }, [value]);
 
     const currentYear = new Date().getFullYear()
     const years = React.useMemo(
@@ -1041,26 +1222,94 @@ const extractOptions = (values: any[] = []) => {
     }
 
     const applyDate = (d?: Date) => {
-      if (!d) return
-      const pure = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-      onChange(pure.toISOString())
-      setOpen(false)
-    }
+      if (!d) return;
+      const pure = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      onChange(pure.toISOString());
+      setText(format(pure, fmtOut));
+      setInvalid(false);
+      setOpen(false);
+    };
+
+    const handleParse = () => {
+      if (!text.trim()) {
+        onChange("");
+        setInvalid(false);
+        return;
+      }
+      const parsed = tryParseDate(text);
+      if (parsed) {
+        onChange(parsed.toISOString());
+        setText(format(parsed, fmtOut));
+        setInvalid(false);
+      } else {
+        setInvalid(true);
+      }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleParse();
+      } else if (e.key === "ArrowDown" || (e.altKey && e.key === "ArrowDown")) {
+        e.preventDefault();
+        setOpen(true);
+      }
+    };
+
+    const handleClear = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setText("");
+      onChange("");
+      setInvalid(false);
+    };
+
+    const inputClassName = cn(
+      "w-full flex-1 rounded-md border bg-gray-50 px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2",
+      invalid || hasError
+        ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+        : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+    );
 
     return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Input
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleParse}
+            placeholder={placeholder}
+            className={inputClassName}
+          />
+          {text && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center justify-center rounded-md border border-gray-300 bg-gray-50 px-3 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <CalendarIcon className="w-4 h-4 text-gray-500" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="bottom"
+            align="start"
+            sideOffset={6}
+            avoidCollisions
+            collisionPadding={8}
+            className="z-50 p-0 w-[320px] bg-white border border-gray-200 rounded-md shadow-lg"
+            onOpenAutoFocus={(e) => e.preventDefault()}
           >
-            <span className={dateObj ? "text-gray-900" : "text-gray-500"}>
-              {dateObj ? format(dateObj, "dd.MM.yyyy") : placeholder}
-            </span>
-            <CalendarIcon className="w-4 h-4 text-gray-500" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[320px] p-0">
           <div className="p-3 space-y-3">
             <div className="flex items-center gap-2">
               <button
@@ -1099,7 +1348,7 @@ const extractOptions = (values: any[] = []) => {
                 }}
                 className="ml-auto text-xs text-blue-600 hover:underline"
               >
-                Bu ay
+                {t("thisMonth")}
               </button>
             </div>
 
@@ -1116,51 +1365,68 @@ const extractOptions = (values: any[] = []) => {
               <button
                 type="button"
                 onClick={() => {
-                  const now = new Date()
-                  applyDate(now)
+                  const now = new Date();
+                  applyDate(now);
                 }}
                 className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100"
               >
-                Bugün
+                {t("today")}
               </button>
               {value && (
                 <button
                   type="button"
                   onClick={() => {
-                    onChange("")
-                    setOpen(false)
+                    onChange("");
+                    setText("");
+                    setInvalid(false);
+                    setOpen(false);
                   }}
                   className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100"
                 >
-                  Təmizlə
+                  {t("clear")}
                 </button>
               )}
             </div>
           </div>
         </PopoverContent>
       </Popover>
-    )
-  }
+      </div>
+    );
+  };
 
   const StyledDateTimePicker = ({
     value,
     onChange,
-    placeholder = "Tarix və saat"
-  }: { value?: string; onChange: (val: string) => void; placeholder?: string }) => {
-    const [open, setOpen] = React.useState(false)
-    const dateObj = value ? new Date(value) : undefined
+    placeholder = "Tarix və saat",
+    hasError = false
+  }: { value?: string; onChange: (val: string) => void; placeholder?: string; hasError?: boolean }) => {
+    const fmtOut = "dd.MM.yyyy HH:mm";
+    const [open, setOpen] = React.useState(false);
+    const [text, setText] = React.useState("");
+    const [invalid, setInvalid] = React.useState(false);
+    const dateObj = value ? new Date(value) : undefined;
 
-    const [tempDate, setTempDate] = React.useState<Date | undefined>(dateObj)
-    const [displayDate, setDisplayDate] = React.useState<Date>(() => dateObj || new Date())
+    const [tempDate, setTempDate] = React.useState<Date | undefined>(dateObj);
+    const [displayDate, setDisplayDate] = React.useState<Date>(() => dateObj || new Date());
+    const [hour, setHour] = React.useState(dateObj ? String(dateObj.getHours()).padStart(2, "0") : "00");
+    const [minute, setMinute] = React.useState(dateObj ? String(dateObj.getMinutes()).padStart(2, "0") : "00");
+
     React.useEffect(() => {
-      if (dateObj) {
-        setTempDate(dateObj)
-        setDisplayDate(new Date(dateObj.getFullYear(), dateObj.getMonth(), 1))
+      if (value) {
+        const d = new Date(value);
+        if (isValid(d)) {
+          setText(format(d, fmtOut));
+          setTempDate(d);
+          setDisplayDate(new Date(d.getFullYear(), d.getMonth(), 1));
+          setHour(String(d.getHours()).padStart(2, "0"));
+          setMinute(String(d.getMinutes()).padStart(2, "0"));
+          setInvalid(false);
+        }
+      } else {
+        setText("");
+        setInvalid(false);
       }
-    }, [value])
-
-    const [hour, setHour] = React.useState(dateObj ? String(dateObj.getHours()).padStart(2, "0") : "00")
-    const [minute, setMinute] = React.useState(dateObj ? String(dateObj.getMinutes()).padStart(2, "0") : "00")
+    }, [value]);
 
     const currentYear = new Date().getFullYear()
     const years = React.useMemo(
@@ -1180,35 +1446,123 @@ const extractOptions = (values: any[] = []) => {
     }
 
     const apply = () => {
-      if (!tempDate) return
-      const d = new Date(tempDate)
-      d.setHours(parseInt(hour || "0"), parseInt(minute || "0"), 0, 0)
-      onChange(d.toISOString())
-      setOpen(false)
-    }
+      if (!tempDate) return;
+      const d = new Date(tempDate);
+      d.setHours(parseInt(hour || "0"), parseInt(minute || "0"), 0, 0);
+      onChange(d.toISOString());
+      setText(format(d, fmtOut));
+      setInvalid(false);
+      setOpen(false);
+    };
 
     const quickNow = () => {
-      const now = new Date()
-      setTempDate(now)
-      setHour(String(now.getHours()).padStart(2, "0"))
-      setMinute(String(now.getMinutes()).padStart(2, "0"))
-      setDisplayDate(new Date(now.getFullYear(), now.getMonth(), 1))
-    }
+      const now = new Date();
+      setTempDate(now);
+      setHour(String(now.getHours()).padStart(2, "0"));
+      setMinute(String(now.getMinutes()).padStart(2, "0"));
+      setDisplayDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    };
+
+    const handleParse = () => {
+      if (!text.trim()) {
+        onChange("");
+        setInvalid(false);
+        return;
+      }
+
+      let dateTime: Date | null = null;
+
+      const match1 = text.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{1,2})$/);
+      if (match1) {
+        const [, day, month, year, hh, mm] = match1;
+        dateTime = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hh), parseInt(mm));
+      }
+
+      if (!dateTime) {
+        const iso = new Date(text);
+        if (isValid(iso)) dateTime = iso;
+      }
+
+      if (!dateTime) {
+        const datePart = tryParseDate(text);
+        if (datePart) {
+          dateTime = new Date(datePart.getFullYear(), datePart.getMonth(), datePart.getDate(), 0, 0);
+        }
+      }
+
+      if (dateTime && isValid(dateTime)) {
+        onChange(dateTime.toISOString());
+        setText(format(dateTime, fmtOut));
+        setInvalid(false);
+      } else {
+        setInvalid(true);
+      }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleParse();
+      } else if (e.key === "ArrowDown" || (e.altKey && e.key === "ArrowDown")) {
+        e.preventDefault();
+        setOpen(true);
+      }
+    };
+
+    const handleClear = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setText("");
+      onChange("");
+      setInvalid(false);
+    };
+
+    const inputClassName = cn(
+      "w-full flex-1 rounded-md border bg-gray-50 px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2",
+      invalid || hasError
+        ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+        : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+    );
 
     return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Input
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleParse}
+            placeholder={placeholder}
+            className={inputClassName}
+          />
+          {text && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center justify-center rounded-md border border-gray-300 bg-gray-50 px-3 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <Clock className="w-4 h-4 text-gray-500" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="bottom"
+            align="start"
+            sideOffset={6}
+            avoidCollisions
+            collisionPadding={8}
+            className="w-[340px] p-3 space-y-3 z-50"
+            onOpenAutoFocus={(e) => e.preventDefault()}
           >
-            <span className={dateObj ? "text-gray-900" : "text-gray-500"}>
-              {dateObj ? format(dateObj, "dd.MM.yyyy HH:mm") : placeholder}
-            </span>
-            <Clock className="w-4 h-4 text-gray-500" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[340px] p-3 space-y-3">
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -1246,82 +1600,85 @@ const extractOptions = (values: any[] = []) => {
                 }}
                 className="ml-auto text-xs text-blue-600 hover:underline"
               >
-                Bu ay
+                {t("thisMonth")}
               </button>
             </div>
 
-          <Calendar
-            mode="single"
-            month={displayDate}
-            onMonthChange={(m) => setDisplayDate(m)}
-            selected={tempDate}
-            onSelect={(d) => setTempDate(d)}
-            initialFocus
-          />
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={0}
-              max={23}
-              value={hour}
-              onChange={(e) => setHour(e.target.value.slice(0,2))}
-              className="w-16 border rounded px-2 py-1 text-sm"
+            <Calendar
+              mode="single"
+              month={displayDate}
+              onMonthChange={(m) => setDisplayDate(m)}
+              selected={tempDate}
+              onSelect={(d) => setTempDate(d)}
+              initialFocus
             />
-            <span className="text-gray-500">:</span>
-            <input
-              type="number"
-              min={0}
-              max={59}
-              value={minute}
-              onChange={(e) => setMinute(e.target.value.slice(0,2))}
-              className="w-16 border rounded px-2 py-1 text-sm"
-            />
-            <button
-              type="button"
-              onClick={quickNow}
-              className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100"
-            >
-              İndi
-            </button>
-            <button
-              type="button"
-              className="ml-auto px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-              onClick={apply}
-              disabled={!tempDate}
-            >
-              Təsdiq et
-            </button>
-          </div>
-          <div className="flex justify-between">
-            {value && (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={23}
+                value={hour}
+                onChange={(e) => setHour(e.target.value.slice(0, 2))}
+                className="w-16 border rounded px-2 py-1 text-sm"
+              />
+              <span className="text-gray-500">:</span>
+              <input
+                type="number"
+                min={0}
+                max={59}
+                value={minute}
+                onChange={(e) => setMinute(e.target.value.slice(0, 2))}
+                className="w-16 border rounded px-2 py-1 text-sm"
+              />
+              <button
+                type="button"
+                onClick={quickNow}
+                className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100"
+              >
+                İndi
+              </button>
+              <button
+                type="button"
+                className="ml-auto px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                onClick={apply}
+                disabled={!tempDate}
+              >
+                Təsdiq et
+              </button>
+            </div>
+            <div className="flex justify-between">
+              {value && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange("");
+                    setText("");
+                    setInvalid(false);
+                    setOpen(false);
+                  }}
+                  className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100"
+                >
+                  Təmizlə
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
-                  onChange("")
-                  setOpen(false)
+                  if (tempDate) {
+                    setHour("00");
+                    setMinute("00");
+                  }
                 }}
-                className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100"
+                className="ml-auto text-xs text-gray-500 hover:underline"
               >
-                Təmizlə
+                Saatı sıfırla
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                if (tempDate) {
-                  setHour("00")
-                  setMinute("00")
-                }
-              }}
-              className="ml-auto text-xs text-gray-500 hover:underline"
-            >
-              Saatı sıfırla
-            </button>
-          </div>
-        </PopoverContent>
-      </Popover>
-    )
-  }
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -1477,16 +1834,18 @@ const extractOptions = (values: any[] = []) => {
                                         {isRequired && <span className="text-red-500 ml-1">*</span>}
                                       </label>
                                       {attribute.isValuable && (
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
+                                        // <Button
+                                        //   type="button"
+                                        //   variant="outline"
+                                        //   size="sm"
+                                        //   className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                                        // >
+                                          <Settings
+                                           className="w-4 h-4 text-blue-600 hover:text-blue-700 cursor-pointer"
                                           onClick={() => openAttributeValuesModal(attribute.attributeId)}
-                                          className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
-                                        >
-                                          <Settings className="w-3 h-3" />
-                                          {t("values")}
-                                        </Button>
+                                          />
+                                          
+                                       
                                       )}
                                     </div>
                                     <div>

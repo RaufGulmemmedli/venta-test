@@ -210,11 +210,18 @@ export default function CvPageContainer() {
             </div>
 
             <div className="border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto relative">
-                    <Table className="text-sm w-full min-w-max">
+                <div className="overflow-x-auto relative" style={{ position: 'relative' }}>
+                    <Table className="text-sm w-full min-w-max" style={{ position: 'relative' }}>
                         <TableHeader>
                             <TableRow className="bg-gray-50 hover:bg-gray-50 [isolation:isolate]">
-                                <TableHead className="px-3 py-2 text-lg sticky left-0 z-30 bg-gray-50 dark:bg-gray-900">
+                                <TableHead 
+                                    className="px-3 py-2 text-lg sticky left-0 z-30 bg-gray-50 dark:bg-gray-900"
+                                    style={{ 
+                                        boxShadow: '2px 0 4px rgba(0, 0, 0, 0.05)',
+                                        position: 'sticky',
+                                        left: 0
+                                    }}
+                                >
                                     ID
                                 </TableHead>
                                 {getAllAttributeNames(cvData).map((attrName) => (
@@ -224,7 +231,12 @@ export default function CvPageContainer() {
                                 ))}
 
                                 <TableHead 
-                                    className={`px-3 py-2 text-right sticky right-0 z-40 border-l bg-gray-50 dark:bg-gray-900 supports-[backdrop-filter]:bg-gray-50/80 supports-[backdrop-filter]:backdrop-blur ${ACTIONS_COL_WIDTH}`}
+                                    className={`px-3 py-2 text-right sticky right-0 z-40 border-l bg-gray-50 dark:bg-gray-900 ${ACTIONS_COL_WIDTH}`}
+                                    style={{ 
+                                        boxShadow: '-2px 0 4px rgba(0, 0, 0, 0.05)',
+                                        position: 'sticky',
+                                        right: 0
+                                    }}
                                 >
                                     Actions
                                 </TableHead>
@@ -252,7 +264,14 @@ export default function CvPageContainer() {
                                     className="group cursor-pointer hover:bg-gray-50 transition-colors [isolation:isolate]"
                                     onClick={() => router.push(`/cv/view?id=${cv.resumeId}`)}
                                 >
-                                    <TableCell className="px-3 py-4 text-base sticky left-0 z-20 bg-white dark:bg-background group-hover:bg-gray-50 transition-colors">
+                                    <TableCell 
+                                        className="px-3 py-4 text-base sticky left-0 z-20 bg-white dark:bg-background group-hover:bg-gray-50 transition-colors"
+                                        style={{ 
+                                            boxShadow: '2px 0 4px rgba(0, 0, 0, 0.05)',
+                                            position: 'sticky',
+                                            left: 0
+                                        }}
+                                    >
                                         {cv.resumeId}
                                     </TableCell>
                                     {getAllAttributeNames(cvData).map((attrName) => (
@@ -261,7 +280,12 @@ export default function CvPageContainer() {
                                         </TableCell>
                                     ))}
                                     <TableCell 
-                                        className={`px-3 py-2 text-right sticky right-0 bg-white dark:bg-background group-hover:bg-gray-50 border-l backdrop-blur supports-[backdrop-filter]:bg-white/85 z-30 transition-colors ${ACTIONS_COL_WIDTH}`}
+                                        className={`px-3 py-2 text-right sticky right-0 bg-white dark:bg-background group-hover:bg-gray-50 border-l z-30 transition-colors ${ACTIONS_COL_WIDTH}`}
+                                        style={{ 
+                                            boxShadow: '-2px 0 4px rgba(0, 0, 0, 0.05)',
+                                            position: 'sticky',
+                                            right: 0
+                                        }}
                                     >
                                         <div className="inline-flex gap-2" onClick={(e) => e.stopPropagation()}>
                                             <Eye

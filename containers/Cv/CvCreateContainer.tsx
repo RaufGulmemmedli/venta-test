@@ -142,61 +142,139 @@ export default function CvCreateContainer() {
     if (isEditMode && editCvData && !editDataLoading) {
       const newFormData: FormData = {};
 
+      console.log('Edit CV Data received:', editCvData);
+
       editCvData.steps.forEach(step => {
         step.sections.forEach(section => {
           section.attributes.forEach(attribute => {
+            console.log('Processing attribute:', attribute.attributeId, 'valueType:', attribute.valueType, 'values:', attribute.values);
 
             if (attribute.values && attribute.values.length > 0) {
-              let formValue: any;
+              let formValue: any = null;
 
               switch (attribute.valueType) {
-                case 6:
-                  formValue = attribute.values.map((v: any) => {
-                    return v.display || v.set?.stringValue || v.set?.decimalValue || v.sets?.[0]?.stringValue;
-                  }).filter(Boolean);
+                case 6: // MultiSelect - collect all values
+                  const multiSelectValues: string[] = [];
+                  attribute.values.forEach(val => {
+                    if (val.display) {
+                      multiSelectValues.push(val.display);
+                    } else if (val.sets && val.sets.length > 0) {
+                      const azSet = val.sets.find((set: any) => 
+                        set.language?.toLowerCase() === 'az'
+                      );
+                      if (azSet) {
+                        const setValue = azSet.stringValue || azSet.decimalValue?.toString() || (azSet.boolValue !== null ? azSet.boolValue.toString() : null);
+                        if (setValue) multiSelectValues.push(setValue);
+                      }
+                    }
+                  });
+                  formValue = multiSelectValues.length > 0 ? multiSelectValues : null;
                   break;
                   
-                case 5:
-                  const selectValue = attribute.values[0];
-                  formValue = selectValue.display || selectValue.set?.stringValue || selectValue.set?.decimalValue || selectValue.sets?.[0]?.stringValue;
-                  break;
-                  
-                case 8:
-                  const rangeValue = attribute.values[0];
-                  const rangeStr = rangeValue.set?.stringValue || rangeValue.sets?.[0]?.stringValue || rangeValue.display;
-                  if (rangeStr && rangeStr.includes(' - ')) {
-                    const [start, end] = rangeStr.split(' - ');
-                    formValue = { start: start.trim(), end: end.trim() };
-                  } else {
-                    formValue = rangeStr;
+                case 5: // Select - single value
+                  const firstValue = attribute.values[0];
+                  if (firstValue.display) {
+                    formValue = firstValue.display;
+                  } else if (firstValue.sets && firstValue.sets.length > 0) {
+                    const azSet = firstValue.sets.find((set: any) => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet) {
+                      formValue = azSet.stringValue || azSet.decimalValue?.toString() || (azSet.boolValue !== null ? azSet.boolValue.toString() : null);
+                    }
                   }
                   break;
                   
-                case 7:
-                case 13:
+                case 8: // DateRange
+                  const dateRangeValue = attribute.values[0];
+                  if (dateRangeValue.sets && dateRangeValue.sets.length > 0) {
+                    const azSet = dateRangeValue.sets.find((set: any) => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet && azSet.stringValue) {
+                      const parts = azSet.stringValue.split(' - ');
+                      if (parts.length === 2) {
+                        formValue = { start: parts[0].trim(), end: parts[1].trim() };
+                      } else {
+                        formValue = azSet.stringValue;
+                      }
+                    }
+                  }
+                  break;
+                  
+                case 7: // Date
+                case 13: // Datetime
                   const dateValue = attribute.values[0];
-                  formValue = dateValue.set?.dateTimeValue || dateValue.sets?.[0]?.dateTimeValue || dateValue.display;
+                  if (dateValue.sets && dateValue.sets.length > 0) {
+                    const azSet = dateValue.sets.find((set: any) => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet && azSet.dateTimeValue) {
+                      formValue = azSet.dateTimeValue;
+                    }
+                  }
                   break;
                   
-                case 9:
+                case 9: // Checkbox
                   const checkboxValue = attribute.values[0];
-                  formValue = checkboxValue.set?.boolValue ?? checkboxValue.sets?.[0]?.boolValue ?? (checkboxValue.display === 'true');
+                  if (checkboxValue.sets && checkboxValue.sets.length > 0) {
+                    const azSet = checkboxValue.sets.find((set: any) => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet && azSet.boolValue !== null && azSet.boolValue !== undefined) {
+                      formValue = azSet.boolValue;
+                    }
+                  }
                   break;
                   
-                case 2:
-                case 15:
+                case 2: // Number
+                case 10: // Range
+                case 15: // Price
                   const numberValue = attribute.values[0];
-                  const numVal = numberValue.set?.decimalValue ?? numberValue.sets?.[0]?.decimalValue ?? numberValue.display;
-                  formValue = numVal !== null && numVal !== undefined ? Number(numVal) : null;
+                  if (numberValue.display) {
+                    formValue = parseFloat(numberValue.display);
+                  } else if (numberValue.sets && numberValue.sets.length > 0) {
+                    const azSet = numberValue.sets.find((set: any) => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet && azSet.decimalValue !== null && azSet.decimalValue !== undefined) {
+                      formValue = azSet.decimalValue;
+                    }
+                  }
                   break;
                   
-                default:
+                case 3: // Radio
+                  const radioValue = attribute.values[0];
+                  if (radioValue.display) {
+                    formValue = radioValue.display;
+                  } else if (radioValue.sets && radioValue.sets.length > 0) {
+                    const azSet = radioValue.sets.find((set: any) => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet) {
+                      formValue = azSet.stringValue || azSet.decimalValue?.toString() || (azSet.boolValue !== null ? azSet.boolValue.toString() : null);
+                    }
+                  }
+                  break;
+                  
+                default: // String, TextArea, Email, Phone, Color, etc.
                   const defaultValue = attribute.values[0];
-                  formValue = defaultValue.set?.stringValue || defaultValue.sets?.[0]?.stringValue || defaultValue.display;
+                  if (defaultValue.display) {
+                    formValue = defaultValue.display;
+                  } else if (defaultValue.sets && defaultValue.sets.length > 0) {
+                    const azSet = defaultValue.sets.find((set: any) => 
+                      set.language?.toLowerCase() === 'az'
+                    );
+                    if (azSet) {
+                      formValue = azSet.stringValue || azSet.decimalValue?.toString() || (azSet.boolValue !== null ? azSet.boolValue.toString() : null);
+                    }
+                  }
                   break;
               }
 
-              if (formValue !== null && formValue !== undefined && formValue !== "") {
+              console.log(`Setting form value for attribute ${attribute.attributeId} (type ${attribute.valueType}):`, formValue);
+
+              if (formValue !== null && formValue !== undefined) {
                 newFormData[attribute.attributeId] = formValue;
               }
             }
@@ -204,6 +282,7 @@ export default function CvCreateContainer() {
         });
       });
 
+      console.log('Final populated form data:', newFormData);
       setFormData(newFormData);
     }
   }, [isEditMode, editCvData, editDataLoading]);
